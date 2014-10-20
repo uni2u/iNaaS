@@ -40,6 +40,7 @@ Specification
 4. Supports about 500 concurrent connections to switches with commodity HW
 5. The same license policy with Floodlight (Apache license)
 6. Loxigen-based Openflow API
+7. OpenStack ML2 Mechanism Driver plugin
 
 Authors
 -------
