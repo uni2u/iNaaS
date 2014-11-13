@@ -9,7 +9,7 @@ import java.util.Set;
 import org.jboss.netty.buffer.ChannelBuffer;
 
 import etri.sdn.controller.Main;
-import etri.sdn.controller.util.Logger;
+
 
 public class JSONSetCIPMsg extends JSONMsg {
 
@@ -59,7 +59,7 @@ public class JSONSetCIPMsg extends JSONMsg {
 	
 	private void buildRowsController() throws OVSDBBridgeUnknown {
 		if (existingCIP.size() == 0) {
-			Logger.debug("no existing controller-IPs on sw {}", ovs.getDpid());
+			OFMOVSDBManager.logger.debug("no existing controller-IPs on sw {}", ovs.getDpid());
 			return;
 		}
 		
@@ -88,7 +88,7 @@ public class JSONSetCIPMsg extends JSONMsg {
 		String dbuuid = null;
 		Set<String> dbset = ovs.open_vswitch.keySet();
 		if (dbset.size() > 1) {
-			Logger.debug("More than one database in ovs @ dpid {}", ovs.getDpid());
+			OFMOVSDBManager.logger.debug("More than one database in ovs @ dpid {}", ovs.getDpid());
 		} else if (dbset.size() == 0) {
 			throw new RuntimeException("no OVSDB database Open_vSwitch found");
 		}
@@ -173,7 +173,7 @@ public class JSONSetCIPMsg extends JSONMsg {
 	@Override
 	public void writeTo(ChannelBuffer buf) {
 		if(Main.debug) {
-			Logger.debug("sent set-cntl-IP message to sw@: {} MSG: {} ", ovs.getHexDpid(), setcipstr);
+			OFMOVSDBManager.logger.debug("sent set-cntl-IP message to sw@: {} MSG: {} ", ovs.getHexDpid(), setcipstr);
 		}
 		
 		buf.writeBytes(setcipstr.getBytes());

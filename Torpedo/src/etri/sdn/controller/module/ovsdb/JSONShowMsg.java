@@ -3,7 +3,7 @@ package etri.sdn.controller.module.ovsdb;
 import org.jboss.netty.buffer.ChannelBuffer;
 
 import etri.sdn.controller.Main;
-import etri.sdn.controller.util.Logger;
+
 
 public class JSONShowMsg extends JSONMsg {
 
@@ -33,7 +33,7 @@ public class JSONShowMsg extends JSONMsg {
 	@Override
 	public void writeTo(ChannelBuffer buf) {
 		if (Main.debug) {
-			Logger.debug("sent show message");
+			OFMOVSDBManager.logger.debug("sent show message");
 		}
 		buf.writeBytes(showstr.getBytes());
 	}

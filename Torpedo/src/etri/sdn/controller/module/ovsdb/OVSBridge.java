@@ -4,7 +4,6 @@ import java.util.ArrayList;
 
 import org.codehaus.jackson.annotate.JsonProperty;
 
-import etri.sdn.controller.util.Logger;
 
 public class OVSBridge {
 
@@ -154,7 +153,7 @@ public class OVSBridge {
 	
 			if (dpidstr != null) {
 				if (!dpidstr.equals(getDPID())) {
-					Logger.debug("Dpids don't match dpid-col:{}, other-config:{}", getDPID(), dpidstr);
+					OFMOVSDBManager.logger.debug("Dpids don't match dpid-col:{}, other-config:{}", getDPID(), dpidstr);
 				}
 				return dpidstr;
 			}

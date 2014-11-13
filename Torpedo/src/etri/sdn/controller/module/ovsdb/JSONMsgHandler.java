@@ -17,7 +17,6 @@ import org.projectfloodlight.openflow.util.HexString;
 
 import etri.sdn.controller.Main;
 import etri.sdn.controller.module.ovsdb.JSONShowReplyMsg.ShowResult;
-import etri.sdn.controller.util.Logger;
 
 
 public class JSONMsgHandler extends SimpleChannelUpstreamHandler {
@@ -42,14 +41,14 @@ public class JSONMsgHandler extends SimpleChannelUpstreamHandler {
 		JsonNode jn = (JsonNode)e.getMessage();
 		
 		if(Main.debug) {
-			Logger.debug("receveid message: {}", e.toString());
+			OFMOVSDBManager.logger.debug("receveid message: {}", e.toString());
 		}
 		
 		if (jn.get("id") == null) return;
 		
 		if (jn.get("id").isNumber()) {
 			if(Main.debug) {
-				Logger.debug("got result for id: {}", jn.get("id").getIntValue());
+				OFMOVSDBManager.logger.debug("got result for id: {}", jn.get("id").getIntValue());
 			}
 			
 			MSG = tsw.getExpectedMessage(jn.get("id").getIntValue());
@@ -81,14 +80,14 @@ public class JSONMsgHandler extends SimpleChannelUpstreamHandler {
 					break; //FIXME check for errors
 				default :
 					//noop
-					Logger.error("Unexpected Message Reply id {}", jn.get("id").getIntValue());
+					OFMOVSDBManager.logger.error("Unexpected Message Reply id {}", jn.get("id").getIntValue());
 			}
 		} else {
 			if (jn.get("method") == null) return;
 			// handle JSON RPC notifications
 			if (jn.get("id").getTextValue().equals("null") &&	jn.get("method").getTextValue().equals("update")) {
 				// got an update message
-				Logger.debug("GOT an UPDATE");
+				OFMOVSDBManager.logger.debug("GOT an UPDATE");
 
 				handleUpdateNotification(jn);
 				
@@ -109,20 +108,20 @@ public class JSONMsgHandler extends SimpleChannelUpstreamHandler {
 			// logger.debug("Illegal State exception ",
 			// e.getCause().toString());
 		} else if (e.getCause() instanceof UnrecognizedPropertyException) {
-			Logger.error("Jackson unrecognized property error {}",
+			OFMOVSDBManager.logger.error("Jackson unrecognized property error {}",
 			e.getCause());
 		} else if (e.getCause() instanceof JsonMappingException) {
-			Logger.error("Jackson mapping error {}",
+			OFMOVSDBManager.logger.error("Jackson mapping error {}",
 			e.getCause());
 		} else if (e.getCause() instanceof JsonParseException) {
-			Logger.error("Jackson parsing error {}",
+			OFMOVSDBManager.logger.error("Jackson parsing error {}",
 			e.getCause());
 		} else if (e.getCause() instanceof ClosedChannelException) {
-			Logger.error("Netty closed channel error", e.getCause());
+			OFMOVSDBManager.logger.error("Netty closed channel error", e.getCause());
 		} else if (e.getCause() instanceof ConnectException) {
-			Logger.error("Connection refused", e.getCause());
+			OFMOVSDBManager.logger.error("Connection refused", e.getCause());
 		} else if (e.getCause() instanceof IOException) {
-			Logger.error("IO problem", e.getCause());
+			OFMOVSDBManager.logger.error("IO problem", e.getCause());
 		} else {
 			super.exceptionCaught(ctx, e);
 		}
@@ -135,7 +134,7 @@ public class JSONMsgHandler extends SimpleChannelUpstreamHandler {
 		String returned = rep.getResult().toString();
 		
 		if (returned.contains("error")) {
-			Logger.error("ovsdb-server at sw {} returned error {}", HexString.toHexString(tsw.getDpid()), returned.substring(returned.indexOf("error")));
+			OFMOVSDBManager.logger.error("ovsdb-server at sw {} returned error {}", HexString.toHexString(tsw.getDpid()), returned.substring(returned.indexOf("error")));
 		}
 	}
 	
@@ -146,7 +145,7 @@ public class JSONMsgHandler extends SimpleChannelUpstreamHandler {
 		String returned = rep.getResult().toString();
 		
 		if (returned.contains("error")) {
-			Logger.error("ovsdb-server at sw {} returned error {}", HexString.toHexString(tsw.getDpid()), returned.substring(returned.indexOf("error")));
+			OFMOVSDBManager.logger.error("ovsdb-server at sw {} returned error {}", HexString.toHexString(tsw.getDpid()), returned.substring(returned.indexOf("error")));
 		}
 	}
 	
@@ -168,19 +167,19 @@ public class JSONMsgHandler extends SimpleChannelUpstreamHandler {
 	public void debugUpdateOrShow(ShowResult sr) {
 		if (Main.debug) {
 			if (sr.getOpen_vSwitch() != null) {
-				Logger.debug("DB UPDATE: " + sr.getOpen_vSwitch().toString());
+				OFMOVSDBManager.logger.debug("DB UPDATE: " + sr.getOpen_vSwitch().toString());
 			}
 			if (sr.getController() != null) {
-				Logger.debug("CNTL UPDATE: " + sr.getController().toString());
+				OFMOVSDBManager.logger.debug("CNTL UPDATE: " + sr.getController().toString());
 			}
 			if (sr.getInterface() != null) {
-				Logger.debug("INTF UPDATE: " + sr.getInterface().toString());
+				OFMOVSDBManager.logger.debug("INTF UPDATE: " + sr.getInterface().toString());
 			}
 			if (sr.getPort() != null) {
-				Logger.debug("PORT UPDATE: " + sr.getPort().toString());
+				OFMOVSDBManager.logger.debug("PORT UPDATE: " + sr.getPort().toString());
 			}
 			if (sr.getBridge() != null) {
-				Logger.debug("BRIDGE UPDATE: " + sr.getBridge().toString());
+				OFMOVSDBManager.logger.debug("BRIDGE UPDATE: " + sr.getBridge().toString());
 			}
 		}
 	}

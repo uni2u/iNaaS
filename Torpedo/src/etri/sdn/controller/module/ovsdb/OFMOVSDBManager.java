@@ -11,6 +11,8 @@ import java.util.concurrent.Executors;
 import org.jboss.netty.bootstrap.ClientBootstrap;
 import org.jboss.netty.channel.socket.nio.NioClientSocketChannelFactory;
 import org.projectfloodlight.openflow.protocol.OFMessage;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import etri.sdn.controller.IService;
 import etri.sdn.controller.Main;
@@ -20,10 +22,12 @@ import etri.sdn.controller.OFModule;
 import etri.sdn.controller.protocol.io.Connection;
 import etri.sdn.controller.protocol.io.IOFHandler;
 import etri.sdn.controller.protocol.io.IOFHandler.Role;
-import etri.sdn.controller.util.Logger;
+
 
 public class OFMOVSDBManager extends OFModule implements IOVSDBManagerService {
 
+	public static final Logger logger = LoggerFactory.getLogger(OFMOVSDBManager.class);
+	
 	/**
 	* OVSDB objects that are connected to the controller on the OpenFlow
 	* channel. Indexed by dpid.
@@ -118,7 +122,7 @@ public class OFMOVSDBManager extends OFModule implements IOVSDBManagerService {
 		// TODO Auto-generated method stub
 		IOVSDB o = ovsSwitchMap.remove(dpid);
 		if (Main.debug && o != null) {
-			Logger.debug("removing OVSDB obj from ovs map for dpid {}", dpid);
+			logger.debug("removing OVSDB obj from ovs map for dpid {}", dpid);
 		}
 		
 		System.out.println("removing OVSDB obj from ovs map for dpid { "+dpid+" }");
@@ -212,7 +216,7 @@ public class OFMOVSDBManager extends OFModule implements IOVSDBManagerService {
 		for (IOVSDB o : ovsSwitchMapNC.values()) {
 			if (o.getDpid() == dpid && !o.getMgmtIPAddr().equals(mgmtIPAddr)) {
 				if (Main.debug) {
-					Logger.debug("Removing stale object with IP {} and dpid {}", mgmtIPAddr, dpidstr);
+					logger.debug("Removing stale object with IP {} and dpid {}", mgmtIPAddr, dpidstr);
 				}
 				
 				System.out.println("setBridgeDpid IP { "+mgmtIPAddr+" } and dpid { "+dpidstr+" }");
@@ -266,7 +270,7 @@ public class OFMOVSDBManager extends OFModule implements IOVSDBManagerService {
 	public void setControllerIPAddresses(long dpid, ArrayList<String> cntrIP) {
 		// TODO Auto-generated method stub
 		if (cntrIP == null || cntrIP.size() == 0) {
-			Logger.error("must specify at least one controller-ip to set" + "at dpid {}", dpid);
+			logger.error("must specify at least one controller-ip to set" + "at dpid {}", dpid);
 			return;
 		}
 			
@@ -281,7 +285,7 @@ public class OFMOVSDBManager extends OFModule implements IOVSDBManagerService {
 				}
 			}
 		}
-		Logger.error("Switch dpid {} not set - could not find ovsdb object" + " when trying to set controller-IPs", dpid);
+		logger.error("Switch dpid {} not set - could not find ovsdb object" + " when trying to set controller-IPs", dpid);
 	}
 
 	@Override
@@ -306,12 +310,12 @@ public class OFMOVSDBManager extends OFModule implements IOVSDBManagerService {
 				// no-op for now
 				break;
 			case SLAVE:
-				Logger.debug("Clearing OVS Switch Maps due to " + "HA change to SLAVE");
+				logger.debug("Clearing OVS Switch Maps due to " + "HA change to SLAVE");
 				ovsSwitchMap.clear();
 				ovsSwitchMapNC.clear();
 				break;
 			default:
-				Logger.debug("Unknow controller role: {}", newRole);
+				logger.debug("Unknow controller role: {}", newRole);
 				break;
 		}
 	}

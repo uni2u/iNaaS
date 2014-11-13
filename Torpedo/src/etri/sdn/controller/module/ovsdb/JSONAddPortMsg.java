@@ -9,7 +9,7 @@ import org.jboss.netty.buffer.ChannelBuffer;
 import org.projectfloodlight.openflow.util.HexString;
 
 import etri.sdn.controller.Main;
-import etri.sdn.controller.util.Logger;
+
 
 public class JSONAddPortMsg extends JSONMsg {
 
@@ -252,7 +252,7 @@ public class JSONAddPortMsg extends JSONMsg {
 	public void writeTo(ChannelBuffer buf) {
 	
 		if (Main.debug) {
-			Logger.debug("sent add-port message to:" + name + " msg-id:"+ id + " @sw: {} ", HexString.toHexString(tsw.getDpid()));
+			OFMOVSDBManager.logger.debug("sent add-port message to:" + name + " msg-id:"+ id + " @sw: {} ", HexString.toHexString(tsw.getDpid()));
 		}
 	
 		buf.writeBytes(completeString.getBytes());

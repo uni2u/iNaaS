@@ -6,7 +6,7 @@ import java.util.Map.Entry;
 import org.jboss.netty.buffer.ChannelBuffer;
 
 import etri.sdn.controller.Main;
-import etri.sdn.controller.util.Logger;
+
 
 public class JSONSetDpidMsg extends JSONMsg {
 
@@ -73,7 +73,7 @@ public class JSONSetDpidMsg extends JSONMsg {
 	@Override
 	public void writeTo(ChannelBuffer buf) {
 		if (Main.debug) {
-			Logger.debug("sent set-dpid message (id:{}) to sw@: {} ", id, dsw.getMgmtIPAddr());
+			OFMOVSDBManager.logger.debug("sent set-dpid message (id:{}) to sw@: {} ", id, dsw.getMgmtIPAddr());
 		}
 		buf.writeBytes(setdpidmsg.getBytes());
 	}

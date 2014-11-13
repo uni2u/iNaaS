@@ -15,7 +15,7 @@ import org.projectfloodlight.openflow.util.HexString;
 
 import etri.sdn.controller.Main;
 import etri.sdn.controller.module.ovsdb.JSONShowReplyMsg.ShowResult;
-import etri.sdn.controller.util.Logger;
+
 
 public class OVSDBImpl implements IOVSDB {
 
@@ -149,7 +149,7 @@ public class OVSDBImpl implements IOVSDB {
 				jsdpid = new JSONSetDpidMsg(dpidstr, this, getNextMessageId());
 				if (channel != null) channel.write(jsdpid);
 			} catch (OVSDBBridgeUnknown e) {
-				Logger.error("Couldn't set-bridge-dpid {} for sw @ {}: could" +
+				OFMOVSDBManager.logger.error("Couldn't set-bridge-dpid {} for sw @ {}: could" +
 						" not find br-tun bridge", dpidstr, mgmtIPAddr); // br-tun -> ovs-br0
 			}
 		}
@@ -159,12 +159,12 @@ public class OVSDBImpl implements IOVSDB {
 			try {
 				statusObj.wait(1000);
 			} catch (InterruptedException e) {
-				Logger.error("Interrupted while waiting for set bridge", e);
+				OFMOVSDBManager.logger.error("Interrupted while waiting for set bridge", e);
 			}
 		}
 		
 		if (Main.debug)
-			Logger.debug("channel closing - set bridge");
+			OFMOVSDBManager.logger.debug("channel closing - set bridge");
 		if (channel != null) channel.close();
 		resetMessageId();
 	}
@@ -201,7 +201,7 @@ public class OVSDBImpl implements IOVSDB {
 				jsetcip = new JSONSetCIPMsg(cntrIP, this, getNextMessageId());
 				if (channel != null) channel.write(jsetcip);
 			} catch (OVSDBBridgeUnknown e) {
-				Logger.error("Couldn't set-controller-ips for {}: could" + " not find br-tun bridge", dpid); // br-tun -> ovs-br0
+				OFMOVSDBManager.logger.error("Couldn't set-controller-ips for {}: could" + " not find br-tun bridge", dpid); // br-tun -> ovs-br0
 			}
 		}
 		
@@ -215,7 +215,7 @@ public class OVSDBImpl implements IOVSDB {
 		}
 		
 		if (Main.debug)
-			Logger.debug("channel closing - set controller IP");
+			OFMOVSDBManager.logger.debug("channel closing - set controller IP");
 		if (channel != null) channel.close();
 		resetMessageId();
 	}
@@ -377,7 +377,7 @@ public class OVSDBImpl implements IOVSDB {
 				
 				if (!useSSL) {
 					// TODO: SSL failed, fall back now
-					Logger.debug("OVSDB on {} <{}> does not listen for SSL " + "connections. Using plain text.", hexDpid, mgmtIPAddr);
+					OFMOVSDBManager.logger.debug("OVSDB on {} <{}> does not listen for SSL " + "connections. Using plain text.", hexDpid, mgmtIPAddr);
 				}
 			}
 			
@@ -399,7 +399,7 @@ public class OVSDBImpl implements IOVSDB {
 		}
 		
 		if (channel == null && showCh == null)
-			Logger.error("Failed to connect to OVSDB on tunnel switch {} <{}>", hexDpid, mgmtIPAddr);
+			OFMOVSDBManager.logger.error("Failed to connect to OVSDB on tunnel switch {} <{}>", hexDpid, mgmtIPAddr);
 		return showCh;
 	}
 	
@@ -425,10 +425,10 @@ public class OVSDBImpl implements IOVSDB {
 			
 			if (closeAfterReceive) {
 				if (showCh != null) showCh.write(jshow);
-				else Logger.error("Show failed on connect to ovs {}", hexDpid);
+				else OFMOVSDBManager.logger.error("Show failed on connect to ovs {}", hexDpid);
 			} else {
 				if (channel != null) channel.write(jshow);
-				else Logger.error("Show failed to connect to ovs {}", hexDpid);
+				else OFMOVSDBManager.logger.error("Show failed to connect to ovs {}", hexDpid);
 			}
 		}
 		
@@ -444,10 +444,10 @@ public class OVSDBImpl implements IOVSDB {
 		if (closeAfterReceive) {
 			if (showCh != null) {
 				if (Main.debug)
-					Logger.debug("closing channel {} after show-only", showCh.toString());
+					OFMOVSDBManager.logger.debug("closing channel {} after show-only", showCh.toString());
 				showCh.close();
 			} else {
-				Logger.error("Failed to connect to ovsdb on switch {}", hexDpid);
+				OFMOVSDBManager.logger.error("Failed to connect to ovsdb on switch {}", hexDpid);
 			}
 			resetMessageId();
 		}
@@ -468,7 +468,7 @@ public class OVSDBImpl implements IOVSDB {
 	public void addPort(String name, String localIPAddr, String remoteIPAddr, boolean isTunnelPort) {
 		
 		if ((localIPAddr == null || remoteIPAddr == null) && isTunnelPort) {
-			Logger.debug("Error in call: cannot add a tunnel-port on switch " + hexDpid + " local IP " + localIPAddr + " remote IP " + remoteIPAddr);
+			OFMOVSDBManager.logger.debug("Error in call: cannot add a tunnel-port on switch " + hexDpid + " local IP " + localIPAddr + " remote IP " + remoteIPAddr);
 			return;
 		}
 	
@@ -485,7 +485,7 @@ public class OVSDBImpl implements IOVSDB {
 		}
 	
 		if (exists) {
-			Logger.debug("port {} already exists on switch {}", name, hexDpid);
+			OFMOVSDBManager.logger.debug("port {} already exists on switch {}", name, hexDpid);
 	
 			if (channel != null) channel.close();
 			resetMessageId();
@@ -502,7 +502,7 @@ public class OVSDBImpl implements IOVSDB {
 				jadd = new JSONAddPortMsg(name, localIPAddr, remoteIPAddr, this, getNextMessageId(), isTunnelPort);
 				if (channel != null) channel.write(jadd);
 			} catch (OVSDBBridgeUnknown e) {
-				Logger.error(String.format("Couldn't add port %s for sw %s with remote IP %s ::"+" no bridge found", name, hexDpid, remoteIPAddr));
+				OFMOVSDBManager.logger.error(String.format("Couldn't add port %s for sw %s with remote IP %s ::"+" no bridge found", name, hexDpid, remoteIPAddr));
 			}
 		}
 	
@@ -518,7 +518,7 @@ public class OVSDBImpl implements IOVSDB {
 		}
 	
 		if (Main.debug)
-			Logger.debug("channel {} closing - add port", channel.toString());
+			OFMOVSDBManager.logger.debug("channel {} closing - add port", channel.toString());
 		if (channel != null)
 			channel.close();
 		
@@ -555,7 +555,7 @@ public class OVSDBImpl implements IOVSDB {
 		}
 	
 		if (portHash == null) {
-			Logger.debug("port {} does not exist on switch {}", name, HexString.toHexString(dpid));
+			OFMOVSDBManager.logger.debug("port {} does not exist on switch {}", name, HexString.toHexString(dpid));
 			if (channel != null) channel.close();
 			resetMessageId();
 			return;
@@ -571,7 +571,7 @@ public class OVSDBImpl implements IOVSDB {
 				jdel = new JSONDelPortMsg(name, portHash, this, getNextMessageId());
 				if (channel != null) channel.write(jdel);
 			} catch (OVSDBBridgeUnknown e) {
-				Logger.error(String.format("Couldn't del port %s for switch %s ::"+" no bridge found", name, hexDpid));
+				OFMOVSDBManager.logger.error(String.format("Couldn't del port %s for switch %s ::"+" no bridge found", name, hexDpid));
 			}
 		}
 	
@@ -587,7 +587,7 @@ public class OVSDBImpl implements IOVSDB {
 		}
 	
 		if (Main.debug)
-			Logger.debug("channel {} closing - del port", channel.toString());
+			OFMOVSDBManager.logger.debug("channel {} closing - del port", channel.toString());
 	
 		if (channel != null) channel.close();
 		resetMessageId();
@@ -618,7 +618,7 @@ public class OVSDBImpl implements IOVSDB {
 		ShowResult sr = showReply.getResult();
 		
 		if(sr.getError() != null){
-			Logger.error("Received error from tunnesw:{} of type {}", dpid, sr.getDetails());
+			OFMOVSDBManager.logger.error("Received error from tunnesw:{} of type {}", dpid, sr.getDetails());
 			return;
 		}
 	
