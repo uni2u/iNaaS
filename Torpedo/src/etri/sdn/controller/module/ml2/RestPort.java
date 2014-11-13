@@ -13,7 +13,6 @@ import org.restlet.data.MediaType;
 import org.restlet.data.Method;
 import org.restlet.data.Status;
 
-import etri.sdn.controller.util.Logger;
 
 public class RestPort extends Restlet {
 
@@ -46,6 +45,7 @@ public class RestPort extends Restlet {
 		public String network_id = null;
 		public String tenant_id = null;
 		public Map<String, String> binding_vif_details = null;
+		public String binding_vif_detail = null;
 		public String binding_vnic_type = null;
 		public String binding_vif_type = null;
 		public String mac_address = null;
@@ -105,8 +105,13 @@ public class RestPort extends Restlet {
 			port.tenant_id = pInfo.get("tenant_id").toString();
 		}
 		if(pInfo.get("binding:vif_details") != null) {
-			ObjectMapper ombp = new ObjectMapper();
-			port.binding_vif_details = ombp.readValue(ombp.writeValueAsString(pInfo.get("binding:vif_details")), new TypeReference<Map<String, String>>(){});
+			//binding:vif_details = false =====> Neutron update
+			if (pInfo.get("binding:vif_details").toString() == "false") {			
+				port.binding_vif_detail = pInfo.get("binding:vif_details").toString();
+			} else {			
+				ObjectMapper ombp = new ObjectMapper();
+				port.binding_vif_details = ombp.readValue(ombp.writeValueAsString(pInfo.get("binding:vif_details")), new TypeReference<Map<String, String>>(){});
+			}
 		}
 		if(pInfo.get("binding:vnic_type") != null) {
 			port.binding_vnic_type = pInfo.get("binding:vnic_type").toString();
@@ -131,7 +136,7 @@ public class RestPort extends Restlet {
 			try {
 				jsonToPortDefinition(request.getEntityAsText(), port);
 			} catch (IOException e) {
-				Logger.error("RestPort Could not parse JSON {}", e.getMessage());
+				OFMOpenstackML2Connector.logger.error("RestPort Could not parse JSON {}", e.getMessage());
 			}
 
 			// We try to get the ID from the URI only if it's not

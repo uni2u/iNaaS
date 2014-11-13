@@ -2,34 +2,49 @@ package etri.sdn.controller.module.ml2;
 
 import java.io.IOException;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 import org.codehaus.jackson.map.ObjectMapper;
 import org.codehaus.jackson.type.TypeReference;
 import org.projectfloodlight.openflow.protocol.OFMessage;
 import org.projectfloodlight.openflow.protocol.OFPacketIn;
+import org.projectfloodlight.openflow.protocol.OFType;
+import org.projectfloodlight.openflow.util.HexString;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import etri.sdn.controller.IService;
 import etri.sdn.controller.Main;
 import etri.sdn.controller.MessageContext;
+import etri.sdn.controller.OFMFilter;
 import etri.sdn.controller.OFModel;
 import etri.sdn.controller.OFModule;
+import etri.sdn.controller.module.devicemanager.IDevice;
+import etri.sdn.controller.module.devicemanager.IDeviceListener;
 import etri.sdn.controller.module.ml2.RestNetwork.NetworkDefinition;
 import etri.sdn.controller.module.ml2.RestPort.PortDefinition;
 import etri.sdn.controller.module.ml2.RestSubnet.SubnetDefinition;
-import etri.sdn.controller.module.ovsdb.OFMOVSDBManager;
 import etri.sdn.controller.module.routing.IRoutingDecision;
 import etri.sdn.controller.protocol.OFProtocol;
 import etri.sdn.controller.protocol.io.Connection;
 import etri.sdn.controller.protocol.io.IOFSwitch;
+import etri.sdn.controller.protocol.packet.DHCP;
 import etri.sdn.controller.protocol.packet.Ethernet;
-import etri.sdn.controller.util.Logger;
+import etri.sdn.controller.protocol.packet.IPacket;
+import etri.sdn.controller.protocol.packet.IPv4;
+import etri.sdn.controller.util.MACAddress;
 
-public class OFMOpenstackML2Connector extends OFModule implements IOpenstackML2ConnectorService {
+
+public class OFMOpenstackML2Connector extends OFModule implements IOpenstackML2ConnectorService, IDeviceListener {
+	
+	public static final Logger logger = LoggerFactory.getLogger(OFMOpenstackML2Connector.class);
 
 	private NetworkConfiguration netConf = null;
 	@SuppressWarnings("unused")
@@ -41,8 +56,11 @@ public class OFMOpenstackML2Connector extends OFModule implements IOpenstackML2C
 	protected Map<String, VirtualSubnet> vSubsByGuid;	// List of all created virtual subnets
 	protected Map<String, String> subIdToNetId;			// Subnet ID -> Network Id
 	protected Map<String, VirtualPort> vPorsByGuid;		// List of all created virtual ports
+	protected Map<MACAddress, String> macToGuid; 		// Host MAC -> Network ID
+	protected Map<MACAddress, String> macToGateway; 	// Host MAC -> Gateway IP
+	protected Map<String, Set<String>> gatewayToGuid; 	// Gateway IP -> Network ID
+	protected Map<String, String> guidToGateway; 		// Network ID -> Gateway IP
 	
-	private OFMOVSDBManager ovsdb = null;
 
 	@Override
 	protected Collection<Class<? extends IService>> services() {
@@ -62,13 +80,23 @@ public class OFMOpenstackML2Connector extends OFModule implements IOpenstackML2C
 
 		netNameToGuid = new ConcurrentHashMap<String, String>();
 		vNetsByGuid = new ConcurrentHashMap<String, VirtualNetwork>();
-
 		vSubsByGuid = new ConcurrentHashMap<String, VirtualSubnet>();
 		subIdToNetId = new ConcurrentHashMap<String, String>();
-		
 		vPorsByGuid = new ConcurrentHashMap<String, VirtualPort>();
+		macToGuid = new ConcurrentHashMap<MACAddress, String>();
+		macToGateway = new ConcurrentHashMap<MACAddress, String>();
+		gatewayToGuid = new ConcurrentHashMap<String, Set<String>>();
+		guidToGateway = new ConcurrentHashMap<String, String>();
 		
-//		ovsdb.start();
+		registerFilter(
+				OFType.PACKET_IN, 
+				new OFMFilter() {
+					@Override
+					public boolean filter(OFMessage m) {
+						return true;
+					}
+				}
+		);
 		
 	}
 
@@ -83,8 +111,9 @@ public class OFMOpenstackML2Connector extends OFModule implements IOpenstackML2C
 		switch (msg.getType()) {
 		case PACKET_IN:
 			IRoutingDecision decision = null;
+						
 			if(context != null) {
-				decision = (IRoutingDecision) context.get(MessageContext.ROUTING_DECISION);
+				decision = (IRoutingDecision) context.get(MessageContext.ROUTING_DECISION);		
 				return this.processPacketIn(conn.getSwitch(), (OFPacketIn) msg, decision, context);
 			}
 			break;
@@ -96,12 +125,101 @@ public class OFMOpenstackML2Connector extends OFModule implements IOpenstackML2C
 		return true;
 	}
 	
+	/**
+	* Checks whether the frame is destined to or from a gateway.
+	* @param frame The ethernet frame to check.
+	* @return True if it is to/from a gateway, false otherwise.
+	*/
+	protected boolean isDefaultGateway(Ethernet frame) {
+		if (macToGateway.containsKey(frame.getSourceMAC()))
+			return true;
+		
+		String gwIp = macToGateway.get(frame.getDestinationMAC());
+		
+		if (gwIp != null) {
+			MACAddress host = frame.getSourceMAC();
+			String srcNet = macToGuid.get(host);
+			
+			if (srcNet != null) {
+				String gwIpSrcNet = guidToGateway.get(srcNet);
+				
+				if ((gwIpSrcNet != null) && (gwIp.equals(gwIpSrcNet)))
+					return true;
+			}
+		}
+		
+		return false;
+	}
+	
+	/**
+	* Checks to see if two MAC Addresses are on the same network.
+	* @param m1 The first MAC.
+	* @param m2 The second MAC.
+	* @return True if they are on the same virtual network,
+	* false otherwise.
+	*/
+	protected boolean oneSameNetwork(MACAddress m1, MACAddress m2) {
+		String net1 = macToGuid.get(m1);
+		String net2 = macToGuid.get(m2);
+	
+		if (net1 == null)
+			return false;
+	
+		if (net2 == null)
+			return false;
+	
+		return net1.equals(net2);
+	}
+	
+	/**
+	* Checks to see if an Ethernet frame is a DHCP packet.
+	* @param frame The Ethernet frame.
+	* @return True if it is a DHCP frame, false otherwise.
+	*/
+	protected boolean isDhcpPacket(Ethernet frame) {		
+		IPacket payload = frame.getPayload(); // IP
+		if (payload == null) {
+			return false;
+		}
+		
+		IPacket p2 = payload.getPayload(); // TCP or UDP
+		if (p2 == null) {
+			return false;
+		}
+		
+		IPacket p3 = p2.getPayload(); // Application
+		if ((p3 != null) && (p3 instanceof DHCP)) {
+			// Todo...
+			// Forwarding udhcpc start!!!!!!!!!!!!!!!!!!!!!!!
+			return true;
+		}
+		
+		return false;
+	}
+	
 	private boolean processPacketIn(IOFSwitch sw, OFPacketIn pi, IRoutingDecision decision, MessageContext cntx) {
 		
 		Ethernet eth = (Ethernet) cntx.get(MessageContext.ETHER_PAYLOAD);
+
+		String srcNetwork = eth.getSourceMAC().toString();
 		
-		System.out.println("PACKET_IN : "+pi.getData().toString());
-		
+		// If the host is on an unknown network we deny it.
+		// We make exceptions for ARP and DHCP.
+		if (eth.isBroadcast() || eth.isMulticast()) {
+			return true;
+		} else if (isDefaultGateway(eth) || isDhcpPacket(eth)) {
+			return true;
+		} else if (srcNetwork == null) {
+			logger.error("Blocking traffic from host {} because it is not attached to any network.", HexString.toHexString(eth.getSourceMACAddress()));
+			return false;
+		} else if (oneSameNetwork(eth.getSourceMAC(), eth.getDestinationMAC())) {
+			// if they are on the same network continue
+			return true;
+		}
+				
+		if (Main.debug)
+			logger.debug("Results for flow between {} and {}", new Object[] {eth.getSourceMAC(), eth.getDestinationMAC()});
+						
 		return true;
 	}
 
@@ -115,6 +233,37 @@ public class OFMOpenstackML2Connector extends OFModule implements IOpenstackML2C
 		return new OFModel[] { this.netConf };
 	}
 
+	/**
+	* Adds a gateway to a virtual network.
+	* @param guid The ID (not name) of the network.
+	* @param ip The IP addresses of the gateway.
+	*/
+	protected void addGateway(String guid, String ip) {
+		if (ip != null) {
+			guidToGateway.put(guid, ip);
+			if (gatewayToGuid.containsKey(ip)) {
+				Set<String> gSet = gatewayToGuid.get(ip);
+				gSet.add(guid);
+			} else {
+				Set<String> gSet = Collections.synchronizedSet(new HashSet<String>());
+				gSet.add(guid);
+				gatewayToGuid.put(ip, gSet);
+			}
+		}
+	}
+	
+	/**
+	* Deletes a gateway for a virtual network.
+	* @param guid The ID (not name) of the network to delete
+	* the gateway for.
+	*/
+	protected void deleteGateway(String guid) {
+		String gwIp = guidToGateway.remove(guid);
+		if (gwIp == null) return;
+		Set<String> gSet = gatewayToGuid.get(gwIp);
+		gSet.remove(guid);
+	}
+	
 	@Override
 	public String listNetworks(String netId, String netKey, String netValue) {
 		String listStr = "";
@@ -214,7 +363,7 @@ public class OFMOpenstackML2Connector extends OFModule implements IOpenstackML2C
 		String netName = null;
 
 		if(netNameToGuid.isEmpty()) {
-			Logger.debug("Could not delete network with ID {}, network doesn't exist", netId);
+			logger.debug("Could not delete network with ID {}, network doesn't exist", netId);
 			return;
 		}
 
@@ -223,11 +372,11 @@ public class OFMOpenstackML2Connector extends OFModule implements IOpenstackML2C
 				netName = entry.getKey();
 				break;
 			}
-			Logger.debug("Could not delete network with ID {}, network doesn't exist", netId);
+			logger.debug("Could not delete network with ID {}, network doesn't exist", netId);
 		}
 
 		if(Main.debug) {
-			Logger.debug("Deleting network with name {} ID {}", netName, netId);
+			logger.debug("Deleting network with name {} ID {}", netName, netId);
 		}
 
 		netNameToGuid.remove(netName);
@@ -337,6 +486,9 @@ public class OFMOpenstackML2Connector extends OFModule implements IOpenstackML2C
 		if(vNetsByGuid.containsKey(netId)) {
 			vNetsByGuid.get(netId).addSubnets(subId, subName);	// network subnets add
 		}
+		
+		if (gatewayIp != null)		
+			addGateway(netId, gatewayIp);
 	}
 
 	@Override
@@ -344,7 +496,7 @@ public class OFMOpenstackML2Connector extends OFModule implements IOpenstackML2C
 		String netId = null;
 
 		if(subIdToNetId.isEmpty()) {
-			Logger.debug("Could not delete subnet with ID {}, subnet doesn't exist", subId);
+			logger.debug("Could not delete subnet with ID {}, subnet doesn't exist", subId);
 			return;
 		}
 
@@ -353,7 +505,7 @@ public class OFMOpenstackML2Connector extends OFModule implements IOpenstackML2C
 				netId = entry.getValue();
 				break;
 			}
-			Logger.debug("Could not delete subnet with ID {}, subnet doesn't exist", subId);
+			logger.debug("Could not delete subnet with ID {}, subnet doesn't exist", subId);
 		}
 
 		subIdToNetId.remove(subId);
@@ -365,6 +517,8 @@ public class OFMOpenstackML2Connector extends OFModule implements IOpenstackML2C
 		if(vNetsByGuid.containsKey(netId)) {
 			vNetsByGuid.get(netId).delSubnets(subId); // network subnets delete
 		}
+		
+		deleteGateway(netId);
 	}
 
 	@Override
@@ -436,6 +590,7 @@ public class OFMOpenstackML2Connector extends OFModule implements IOpenstackML2C
 		String porName = port.porName;
 		String admin_state_up = port.admin_state_up;
 		Map<String, String> binding_vif_details = port.binding_vif_details;
+		String binding_vif_detail = port.binding_vif_detail;
 		String binding_vnic_type = port.binding_vnic_type;
 		String binding_vif_type = port.binding_vif_type;
 		
@@ -450,6 +605,7 @@ public class OFMOpenstackML2Connector extends OFModule implements IOpenstackML2C
 			vPorsByGuid.get(porId).setPorName(porName);								// port already exists, just updating name
 			vPorsByGuid.get(porId).setAdminStateUp(admin_state_up);					// port already exists, just updating admin_state_up
 			vPorsByGuid.get(porId).setBindingVifDetails(binding_vif_details);		// port already exists, just updating binding:vif_details
+			vPorsByGuid.get(porId).setBindingVifDetails(binding_vif_detail);
 			vPorsByGuid.get(porId).setBindingVnicType(binding_vnic_type);			// port already exists, just updating binding:vnic_type
 			vPorsByGuid.get(porId).setBindingVifType(binding_vif_type);				// port already exists, just updating binding:vif_type
 		} else {
@@ -464,6 +620,51 @@ public class OFMOpenstackML2Connector extends OFModule implements IOpenstackML2C
 		if(vPorsByGuid.get(porId) != null){
 			vPorsByGuid.remove(porId);
 		}
+		
+	}
+	
+	@Override
+	public void deviceAdded(IDevice device) {
+		// TODO Auto-generated method stub
+		if (device.getIPv4Addresses() == null) return;
+		for (Integer i : device.getIPv4Addresses()) {
+			if (gatewayToGuid.containsKey(i)) {
+				MACAddress mac = MACAddress.valueOf(device.getMACAddress());
+				
+System.out.println("Adding MAC {"+HexString.toHexString(mac.toBytes())+"} with IP {"+IPv4.fromIPv4Address(i)+"} a a gateway");
+
+				macToGateway.put(mac, i.toString());
+			}
+		}
+	}
+	
+	@Override
+	public void deviceRemoved(IDevice device) {
+		// TODO Auto-generated method stub
+		MACAddress mac = MACAddress.valueOf(device.getMACAddress());
+		if (macToGateway.containsKey(mac)) {
+
+System.out.println("Removing MAC {"+HexString.toHexString(mac.toBytes())+"} as a gateway");
+
+			macToGateway.remove(mac);
+		}
+	}
+
+	@Override
+	public void deviceMoved(IDevice device) {
+		// TODO Auto-generated method stub
+		
+	}
+
+	@Override
+	public void deviceIPV4AddrChanged(IDevice device) {
+		// TODO Auto-generated method stub
+		deviceAdded(device);
+	}
+
+	@Override
+	public void deviceVlanChanged(IDevice device) {
+		// TODO Auto-generated method stub
 		
 	}
 

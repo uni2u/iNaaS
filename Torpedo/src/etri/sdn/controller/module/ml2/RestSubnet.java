@@ -13,7 +13,6 @@ import org.restlet.data.MediaType;
 import org.restlet.data.Method;
 import org.restlet.data.Status;
 
-import etri.sdn.controller.util.Logger;
 
 public class RestSubnet extends Restlet {
 
@@ -117,7 +116,7 @@ public class RestSubnet extends Restlet {
 			try {
 				jsonToSubnetDefinition(request.getEntityAsText(), subnet);
 			} catch (IOException e) {
-				Logger.error("RestSubnet Could not parse JSON {}", e.getMessage());
+				OFMOpenstackML2Connector.logger.error("RestSubnet Could not parse JSON {}", e.getMessage());
 			}
 			
 			// We try to get the ID from the URI only if it's not

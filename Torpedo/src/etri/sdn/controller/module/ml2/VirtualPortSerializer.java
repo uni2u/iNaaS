@@ -58,13 +58,17 @@ public class VirtualPortSerializer extends JsonSerializer<VirtualPort> {
 		jGen.writeStringField("admin_state_up", vPor.admin_state_up);
 		jGen.writeStringField("network_id", vPor.network_id);
 		jGen.writeStringField("tenant_id", vPor.tenant_id);
-		jGen.writeObjectFieldStart("binding_vif_details");
+		if(vPor.binding_vif_detail != null) {
+			jGen.writeStringField("binding_vif_details", vPor.binding_vif_detail);
+		} else {
+			jGen.writeObjectFieldStart("binding_vif_details");
 			if(vPor.binding_vif_details != null) {
 				for (Entry<String, String> entry : vPor.binding_vif_details.entrySet()) {
 					jGen.writeStringField(entry.getKey().toString().toLowerCase(), entry.getValue().toString());
 				}
 			}
 		jGen.writeEndObject();
+		}
 		jGen.writeStringField("binding_vnic_type", vPor.binding_vnic_type);
 		jGen.writeStringField("binding_vif_type", vPor.binding_vif_type);
 		jGen.writeStringField("mac_address", vPor.mac_address);

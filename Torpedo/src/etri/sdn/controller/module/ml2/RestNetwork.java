@@ -12,10 +12,9 @@ import org.restlet.data.MediaType;
 import org.restlet.data.Method;
 import org.restlet.data.Status;
 
-import etri.sdn.controller.util.Logger;
 
 public class RestNetwork extends Restlet {
-
+	
 	static String neutronNetAll = "/wm/ml2/networks";
 	static String neutronNet = "/wm/ml2/networks/{netUUID}";
 	static String neutronNetIRIS = "/wm/ml2/networks/{netKey}/{netValue}";
@@ -93,7 +92,7 @@ public class RestNetwork extends Restlet {
 			try {
 				jsonToNetworkDefinition(request.getEntityAsText(), network);
 			} catch (IOException e) {
-				Logger.error("RestNetwork Could not parse JSON {}", e.getMessage());
+				OFMOpenstackML2Connector.logger.error("RestNetwork Could not parse JSON {}", e.getMessage());
 			}
 
 			// We try to get the ID from the URI only if it's not

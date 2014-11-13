@@ -25,6 +25,7 @@ public class VirtualPort {
 	protected String network_id;							// port tenant_id
 	protected String tenant_id;								// port binding_vif_details
 	protected Map<String, String> binding_vif_details;		// port binding_vif_details
+	protected String binding_vif_detail;
 	protected String binding_vnic_type;						// port binding_vnic_type
 	protected String binding_vif_type;						// port binding_vif_type
 	protected String mac_address;							// port mac_address
@@ -48,6 +49,7 @@ public class VirtualPort {
 		this.network_id=port.network_id;
 		this.tenant_id = port.tenant_id;
 		this.binding_vif_details = port.binding_vif_details;
+		this.binding_vif_detail = port.binding_vif_detail;
 		this.binding_vnic_type = port.binding_vnic_type;
 		this.binding_vif_type = port.binding_vif_type;
 		this.mac_address = port.mac_address;
@@ -142,6 +144,15 @@ public class VirtualPort {
 	*/
 	public void setBindingVifDetails(Map<String, String> binding_vif_details) {
 		this.binding_vif_details = binding_vif_details;
+		return;
+	}
+	
+	/**
+	* Sets port binding_vif_detail
+	* @param binding_vif_detail : port binding_vif_detail
+	*/
+	public void setBindingVifDetails(String binding_vif_detail) {
+		this.binding_vif_detail = binding_vif_detail;
 		return;
 	}
 
