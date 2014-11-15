@@ -44,7 +44,7 @@ public class BasicML2Controller extends OFController {
 			m_entity_classifier, 
 			m_device_manager,
 			m_firewall,
-//			m_ml2,
+			m_ml2,
 			m_forwarding
 	};
 
