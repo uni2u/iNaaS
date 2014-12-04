@@ -173,5 +173,14 @@ public class VirtualPort {
 		this.binding_vif_type = binding_vif_type;
 		return;
 	}
+	
+	/**
+	 * Sets port mac_address
+	 * @param mac_address : mac_address
+	 */
+	public void setMACAddress(String mac_address) {
+		this.mac_address = mac_address;
+		return;
+	}
 
 }
