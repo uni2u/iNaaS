@@ -75,10 +75,10 @@ import org.projectfloodlight.openflow.types.U64;
 import org.projectfloodlight.openflow.types.U8;
 import org.projectfloodlight.openflow.types.VlanPcp;
 import org.projectfloodlight.openflow.types.VlanVid;
+import org.slf4j.Logger;
 
 import etri.sdn.controller.protocol.io.IOFSwitch;
 import etri.sdn.controller.protocol.packet.IPv4;
-import etri.sdn.controller.util.Logger;
 
 /**
  * This class implements the functions related to static flow entry itself.
@@ -92,6 +92,8 @@ import etri.sdn.controller.util.Logger;
  *
  */
 public class StaticFlowEntry {
+	
+	private static final Logger logger = OFMStaticFlowEntryManager.logger;
 
 	private static final long STATIC_FLOW_ENTRY_APP_ID = 10;
 
@@ -322,7 +324,7 @@ public class StaticFlowEntry {
 	 * 
 	 * @throws StaticFlowEntryException
 	 */
-	private static Match makeMatch(IOFSwitch sw, List<String> keys, Map<String, Object> entry) throws StaticFlowEntryException {
+	public static Match makeMatch(IOFSwitch sw, List<String> keys, Map<String, Object> entry) throws StaticFlowEntryException {
 		OFFactory fac = OFFactories.getFactory(sw.getVersion());
 		Match.Builder builder = fac.buildMatch();
 
@@ -363,17 +365,43 @@ public class StaticFlowEntry {
 				}
 			}
 			else if (key.toLowerCase().equals("ipv4_src")) {
+				String value = entry.get("ipv4_src").toString();
 				if ( builder.get(MatchField.ETH_TYPE) == EthType.ARP ) {
-					builder.setExact(MatchField.ARP_SPA, IPv4Address.of((String) entry.get("ipv4_src")));
+					if ( value.contains("/") ) {
+						String[] arrayValue = value.split("/");
+						builder.setMasked(MatchField.ARP_SPA, IPv4Address.of(arrayValue[0]), 
+								IPv4Address.ofCidrMaskLength( Integer.valueOf(arrayValue[1]) ));
+					} else {
+						builder.setExact(MatchField.ARP_SPA, IPv4Address.of(value));
+					}
 				} else {
-					builder.setExact(MatchField.IPV4_SRC, IPv4Address.of((String) entry.get("ipv4_src")));
+					if ( value.contains("/") ) {
+						String[] arrayValue = value.split("/");
+						builder.setMasked(MatchField.IPV4_SRC, IPv4Address.of(arrayValue[0]), 
+								IPv4Address.ofCidrMaskLength( Integer.valueOf(arrayValue[1]) ));
+					} else {
+						builder.setExact(MatchField.IPV4_SRC, IPv4Address.of(value));
+					}
 				}
 			}
 			else if (key.toLowerCase().equals("ipv4_dst")) {
+				String value = entry.get("ipv4_dst").toString();
 				if ( builder.get(MatchField.ETH_TYPE) == EthType.ARP ) {
-					builder.setExact(MatchField.ARP_TPA, IPv4Address.of((String) entry.get("ipv4_dst")));
+					if ( value.contains("/") ) {
+						String[] arrayValue = value.split("/");
+						builder.setMasked(MatchField.ARP_TPA, IPv4Address.of(arrayValue[0]), 
+								IPv4Address.ofCidrMaskLength( Integer.valueOf(arrayValue[1]) ));
+					} else {
+						builder.setExact(MatchField.ARP_TPA, IPv4Address.of(value));
+					}
 				} else {
-					builder.setExact(MatchField.IPV4_DST, IPv4Address.of((String) entry.get("ipv4_dst")));
+					if ( value.contains("/") ) {
+						String[] arrayValue = value.split("/");
+						builder.setMasked(MatchField.IPV4_DST, IPv4Address.of(arrayValue[0]), 
+								IPv4Address.ofCidrMaskLength( Integer.valueOf(arrayValue[1]) ));
+					} else {
+						builder.setExact(MatchField.IPV4_DST, IPv4Address.of(value));
+					}
 				}
 			}
 			else if (key.toLowerCase().equals("ip_dscp")) {
@@ -410,10 +438,24 @@ public class StaticFlowEntry {
 				builder.setExact(MatchField.ARP_OP, ArpOpcode.of(Integer.valueOf((String) entry.get("arp_op"))));
 			}
 			else if (key.toLowerCase().equals("arp_spa")) {
-				builder.setExact(MatchField.ARP_SPA, IPv4Address.of((String) entry.get("arp_spa")));
+				String value = entry.get("arp_spa").toString();
+				if ( value.contains("/") ) {
+					String[] arrayValue = value.split("/");
+					builder.setMasked(MatchField.ARP_SPA, IPv4Address.of(arrayValue[0]), 
+							IPv4Address.ofCidrMaskLength( Integer.valueOf(arrayValue[1]) ));
+				} else {
+					builder.setExact(MatchField.ARP_SPA, IPv4Address.of(value));
+				}
 			}
 			else if (key.toLowerCase().equals("arp_tpa")) {
-				builder.setExact(MatchField.ARP_TPA, IPv4Address.of((String) entry.get("arp_tpa")));
+				String value = entry.get("arp_tpa").toString();
+				if ( value.contains("/") ) {
+					String[] arrayValue = value.split("/");
+					builder.setMasked(MatchField.ARP_TPA, IPv4Address.of(arrayValue[0]), 
+							IPv4Address.ofCidrMaskLength( Integer.valueOf(arrayValue[1]) ));
+				} else {
+					builder.setExact(MatchField.ARP_TPA, IPv4Address.of(value));
+				}
 			}
 			else if (key.toLowerCase().equals("arp_sha")) {
 				builder.setExact(MatchField.ARP_SHA, MacAddress.of((String) entry.get("arp_sha")));
@@ -679,7 +721,7 @@ public class StaticFlowEntry {
 	protected static OFMessage makeFlowMod(IOFSwitch sw, OFFlowModCommand command, Map<String, Object> entry) throws StaticFlowEntryException {
 
 		if ( !entry.containsKey("name") || !entry.containsKey("switch") ) {
-			Logger.debug("Skipping entry with missing required 'name' or 'switch' entry");
+			logger.debug("Skipping entry with missing required 'name' or 'switch' entry: {}", entry);
 			return null;
 		}
 
@@ -718,7 +760,7 @@ public class StaticFlowEntry {
 			}
 			else if (key.toLowerCase().equals("active")) {
 				if (!Boolean.valueOf((String) entry.get("active"))) {
-					Logger.debug("Skipping inactive entry {} for switch {}", entryName, switchName);
+					logger.debug("Skipping inactive entry {} for switch {}", entryName, switchName);
 					return null;
 				}
 			}

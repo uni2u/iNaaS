@@ -14,6 +14,8 @@ import org.openflow.protocol.factory.OFMessageParser;
 import org.projectfloodlight.openflow.exceptions.OFParseError;
 import org.projectfloodlight.openflow.protocol.OFFactories;
 import org.projectfloodlight.openflow.protocol.OFMessage;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Asynchronous OpenFlow message marshalling and unmarshalling stream wrapped
@@ -25,6 +27,9 @@ import org.projectfloodlight.openflow.protocol.OFMessage;
  * 
  */
 public class OFMessageAsyncStream implements OFMessageInStream, OFMessageOutStream, OFMessageParser {
+	
+	private static final Logger logger = LoggerFactory.getLogger(OFMessageAsyncStream.class);
+	
 	static public int DEFAULT_BUFFER_SIZE = 65536;
 
 	protected SocketReadByteChannelBuffer inBuf;
@@ -64,7 +69,16 @@ public class OFMessageAsyncStream implements OFMessageInStream, OFMessageOutStre
 	}
 
 	protected void appendMessageToOutBuf(OFMessage m) throws IOException {
-		m.writeTo(outBuf);
+		int writerIndex = outBuf.writerIndex();
+		do { 
+			try { 
+				m.writeTo(outBuf);
+				break;
+			} catch ( IndexOutOfBoundsException e ) {
+				outBuf.writerIndex( writerIndex );
+				flush();
+			}
+		} while ( true );
 	}
 
 	/**
@@ -72,29 +86,16 @@ public class OFMessageAsyncStream implements OFMessageInStream, OFMessageOutStre
 	 */
 	@Override
 	public void write(OFMessage m) throws IOException {
-		if ( this.outBuf.writableBytes() < 2048 ) {
-			flush();
-		}
 		appendMessageToOutBuf(m);
-	}
-
-	/**
-	 * Buffers a list of OpenFlow messages
-	 */
-	@Override
-	public void write(List<OFMessage> l) throws IOException {
-		for (OFMessage m : l) {
-			this.write(m);
-		}
 	}
 	
 	@Override
-	public List<OFMessage> parseMessages(ChannelBuffer data) {
+	public List<OFMessage> parseMessages(ChannelBuffer data) throws IOException {
 		return parseMessages(data, 0);
 	}
 
 	@Override
-	public List<OFMessage> parseMessages(ChannelBuffer data, int limit) {
+	public List<OFMessage> parseMessages(ChannelBuffer data, int limit) throws IOException {
 		
 		List<OFMessage> results = new ArrayList<OFMessage>();
 		OFHeader demux = new OFHeader();
@@ -116,15 +117,20 @@ public class OFMessageAsyncStream implements OFMessageInStream, OFMessageOutStre
 				if ( msg != null ) {
 					results.add( msg );
 				} else {
-					data.readerIndex( start );
+					logger.error("malformed msg. cannot parse. v={}:t={}:l={}", demux.getVersion(), demux.getType(), demux.getLengthU());
+					throw new IOException("cannot parse malformed msg. we manually disconnect from this switch.");
 				}
-				
 			} catch (OFParseError e) {
-//				e.printStackTrace();
-//				System.err.println(data);
-				// we skip this message: not parse
+				logger.error("switch is sending wrong OF messages of size={}, e={}", demux.getLengthU(), e);
+				throw new IOException(e);
+			} catch (IllegalArgumentException e) {
+				logger.error("switch is sending wrong version of OF messages={}, e={}", demux.getVersion(), e);
+				throw new IOException(e);
+			} catch ( Exception e ) {
+				logger.error("exception during parsing: e={}", e);
+				throw new IOException(e);
+			} finally { 
 				data.readerIndex( start + demux.getLengthU() );
-				continue;
 			}
 		}
 		return results;
@@ -136,18 +142,12 @@ public class OFMessageAsyncStream implements OFMessageInStream, OFMessageOutStre
 	 * designed for one flush() per select() event
 	 */
 	public void flush() throws IOException {
-		
-		do {	
+		try { 
 			this.outBuf.write(sock);
-		} while ( outBuf.writableBytes() > 0 );
-			
-		outBuf.clear();
-	}
-
-	/**
-	 * Is there outgoing buffered data that needs to be flush()'d?
-	 */
-	public boolean needsFlush() {
-		return this.outBuf.writerIndex() > 0;
+		} catch ( IOException e ) {
+			throw e;
+		} finally {
+			this.outBuf.clear();
+		}
 	}
 }

@@ -20,6 +20,7 @@ package etri.sdn.controller.module.forwarding;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.EnumSet;
@@ -41,7 +42,6 @@ import org.projectfloodlight.openflow.protocol.OFType;
 import org.projectfloodlight.openflow.protocol.action.OFAction;
 import org.projectfloodlight.openflow.protocol.action.OFActionOutput;
 import org.projectfloodlight.openflow.protocol.instruction.OFInstruction;
-import org.projectfloodlight.openflow.protocol.instruction.OFInstructionApplyActions;
 import org.projectfloodlight.openflow.protocol.match.Match;
 import org.projectfloodlight.openflow.protocol.match.MatchField;
 import org.projectfloodlight.openflow.types.EthType;
@@ -50,6 +50,8 @@ import org.projectfloodlight.openflow.types.OFBufferId;
 import org.projectfloodlight.openflow.types.OFPort;
 import org.projectfloodlight.openflow.types.TableId;
 import org.projectfloodlight.openflow.types.U64;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import etri.sdn.controller.MessageContext;
 import etri.sdn.controller.OFModule;
@@ -68,7 +70,6 @@ import etri.sdn.controller.protocol.io.IOFSwitch;
 import etri.sdn.controller.protocol.packet.Ethernet;
 import etri.sdn.controller.protocol.packet.IPacket;
 import etri.sdn.controller.util.AppCookie;
-import etri.sdn.controller.util.Logger;
 import etri.sdn.controller.util.OFMessageDamper;
 import etri.sdn.controller.util.TimedCache;
 
@@ -80,6 +81,8 @@ import etri.sdn.controller.util.TimedCache;
  *  @author jshin
  */
 public abstract class ForwardingBase extends OFModule implements IDeviceListener {
+	
+	private static final Logger logger = LoggerFactory.getLogger(ForwardingBase.class);
 
 	protected static int OFMESSAGE_DAMPER_CAPACITY = 50000; // TODO: find sweet spot
 	protected static int OFMESSAGE_DAMPER_TIMEOUT = 250; 	// ms 
@@ -151,7 +154,7 @@ public abstract class ForwardingBase extends OFModule implements IDeviceListener
 			try {
 				return pi.getMatch().get(MatchField.IN_PORT);
 			} catch ( NullPointerException nx ) {
-				Logger.debug("Packet-in does not have oxm object for OFB_IN_PORT");
+				logger.error("Packet-in does not have oxm object for OFB_IN_PORT: pi={}", pi);
 				throw new AssertionError("pi cannot refer null");
 			}
 		}
@@ -262,8 +265,6 @@ public abstract class ForwardingBase extends OFModule implements IDeviceListener
 
 		fm.setIdleTimeout(FLOWMOD_DEFAULT_IDLE_TIMEOUT)
 		.setHardTimeout(FLOWMOD_DEFAULT_HARD_TIMEOUT)
-//		.setBufferId(OFBufferId.NO_BUFFER)
-		.setBufferId(pi.getBufferId())
 		.setCookie(U64.of(cookie))
 		.setMatch(match)
 		.setPriority(FLOWMOD_DEFAULT_PRIORITY)
@@ -292,8 +293,7 @@ public abstract class ForwardingBase extends OFModule implements IDeviceListener
 				return srcSwitchIncluded;
 			}
 
-			// set buffer id if it is the source switch
-			if (1 == indx) {
+			if (switchDPID == pinSwitch) {
 				// Set the flag to request flow-mod removal notifications only for the
 				// source switch. The removal message is used to maintain the flow cache.
 				// Don't set the flag for ARP messages - TODO generalize check
@@ -305,7 +305,7 @@ public abstract class ForwardingBase extends OFModule implements IDeviceListener
 			OFPort outPort = switchPortList.get(indx).getPortId();
 			OFPort inPort = switchPortList.get(indx-1).getPortId();
 			
-			Match.Builder fm_match = match.createBuilder();
+			Match.Builder fm_match = fac.buildMatch();
 			
 			// copy construct the original match object.
 			for ( @SuppressWarnings("rawtypes") MatchField mf : match.getMatchFields() ) {
@@ -318,25 +318,18 @@ public abstract class ForwardingBase extends OFModule implements IDeviceListener
 			
 			fm_match.setExact(MatchField.IN_PORT, inPort);
 			
-			List<OFAction> actions = new ArrayList<OFAction>();
-			OFActionOutput.Builder action_output = fac.actions().buildOutput(); 
-			action_output.setMaxLen((short)0xffff).setPort(outPort);
-			actions.add(action_output.build());
+			List<OFAction> actions = Arrays.<OFAction>asList( fac.actions().output(outPort, 0) );
 			
 			try {	
 				fm.setActions( actions );
 			} catch ( UnsupportedOperationException u ) {
-				List<OFInstruction> instructions = new ArrayList<OFInstruction>();
-				OFInstructionApplyActions.Builder instruction = fac.instructions().buildApplyActions();
-				instruction.setActions(actions);
-				instructions.add(instruction.build());
-
+				List<OFInstruction> instructions = 
+						Arrays.<OFInstruction>asList( fac.instructions().applyActions( actions ) );
 				fm.setInstructions( instructions );
 			}
 			
 			fm.setMatch(fm_match.build());
-			
-			fm.setBufferId(OFBufferId.NO_BUFFER); //?
+			fm.setBufferId(OFBufferId.NO_BUFFER); 
 
 			try {
 //				counterStore.updatePktOutFMCounterStore(sw, fm);
@@ -347,19 +340,37 @@ public abstract class ForwardingBase extends OFModule implements IDeviceListener
 //							fm.getMatch().getInputPort(), outPort });
 //				}
 				
-				// write flow-mod object to switch.
-				messageDamper.write(sw.getConnection(), fm.build());
-
-				// Push the packet out the source switch
-				if (sw.getId() == pinSwitch) {
-					// TODO: Instead of doing a packetOut here we could also 
-					// send a flowMod with bufferId set.... 
-					pushPacket(conn, match, pi, outPort, cntx);
+				// special care for the source switch.
+				if ( switchDPID == pinSwitch ) {
+					if ( pi.getBufferId() != OFBufferId.NO_BUFFER ) {
+						fm.setBufferId( pi.getBufferId() );
+					} else {
+						
+						// Push the packet out the source switch
+						OFPacketOut.Builder po = fac.buildPacketOut();
+						try {
+							po
+							.setData( pi.getData() )
+							.setInPort( getInputPort(pi) );
+						} catch (UnsupportedOperationException e) {
+							// this exception might be because of setInPort (1.3 does not support it.)
+							// just ignore.
+						}
+						
+						po.setActions( Arrays.<OFAction>asList( fac.actions().output(outPort, 0) ) );
+						
+						messageDamper.write(sw.getConnection(), po.build());
+					}
+					
 					srcSwitchIncluded = true;
 				}
 				
+				// write flow-mod object to switch.
+				messageDamper.write(sw.getConnection(), fm.build());
+
+				
 			} catch (IOException e) {
-				Logger.stderr("Failure writing flow mod" + e.toString());
+				logger.error("Failure writing flow mod: err={}", e);
 			}
 		}
 
@@ -386,14 +397,10 @@ public abstract class ForwardingBase extends OFModule implements IDeviceListener
 		}
 		OFPort inPort = getInputPort(pi);
 		
-		if ( outPort.equals(inPort) ){
-			Logger.stdout("Packet out not sent as the outport matches inport. " + pi.toString());
-			return;
-		}
-
 		// The assumption here is (sw) is the switch that generated the packet-in. 
 		// If the input port is the same as output port, then the packet-out should be ignored.
-		if ( inPort.equals(outPort) ) {
+		if ( outPort.equals(inPort) ){
+			logger.debug("Packet out not sent as the outport matches inport: pi={} outPort={}", pi, outPort);
 			return;
 		}
 		
@@ -411,7 +418,7 @@ public abstract class ForwardingBase extends OFModule implements IDeviceListener
 
 		// If the switch doens't support buffering set the buffer id to be none
 		// otherwise it'll be the the buffer id of the PacketIn
-		if ( protocol.getSwitchInformation(conn.getSwitch()).getBuffers() == 0 ) {
+		if ( pi.getBufferId() == OFBufferId.NO_BUFFER ) {
 			po
 			.setBufferId( OFBufferId.NO_BUFFER )
 			.setData( pi.getData() );
@@ -425,7 +432,7 @@ public abstract class ForwardingBase extends OFModule implements IDeviceListener
 //			counterStore.updatePktOutFMCounterStore(sw, po);
 			messageDamper.write(conn, po.build());
 		} catch (IOException e) {
-			Logger.stderr("Failure writing packet out" + e.toString());
+			logger.error("Failure writing packet out: err={}", e);
 		}
 	}
 
@@ -487,7 +494,7 @@ public abstract class ForwardingBase extends OFModule implements IDeviceListener
 //			counterStore.updatePktOutFMCounterStore(sw, po);
 			messageDamper.write(conn, po.build());
 		} catch (IOException e) {
-			Logger.stderr("Failure writing packet out" + e.toString());
+			logger.error("Failure writing packet out: err={}", e);
 		}
 	}
 
@@ -546,7 +553,7 @@ public abstract class ForwardingBase extends OFModule implements IDeviceListener
 			messageDamper.write(conn, po.build());
 
 		} catch (IOException e) {
-			Logger.stderr("Failure writing packet out" + e.toString());
+			logger.error("Failure writing packet out: err={}", e);
 		}
 	}
 
@@ -705,7 +712,7 @@ public abstract class ForwardingBase extends OFModule implements IDeviceListener
 			messageDamper.write(sw.getConnection(), fm.build());
 
 		} catch (IOException e) {
-			Logger.stderr("Failure writing drop flow mod " + e.toString());
+			logger.error("Failure writing drop flow mod: err={}", e);
 		}
 		return true;
 

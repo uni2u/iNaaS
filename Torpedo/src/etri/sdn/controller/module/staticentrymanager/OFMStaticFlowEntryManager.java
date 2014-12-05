@@ -10,6 +10,8 @@ import java.util.Set;
 
 import org.projectfloodlight.openflow.protocol.OFFlowModCommand;
 import org.projectfloodlight.openflow.protocol.OFMessage;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import etri.sdn.controller.IService;
 import etri.sdn.controller.Main;
@@ -30,6 +32,8 @@ import etri.sdn.controller.protocol.io.IOFSwitch;
  *
  */
 public class OFMStaticFlowEntryManager extends OFModule implements IStaticFlowEntryService {
+	
+	static final Logger logger = LoggerFactory.getLogger(OFMStaticFlowEntryManager.class);
 
 	private StaticFlowEntryStorage flowEntryStorage;
 	private OFMStorageManager flowEntryDB;
@@ -42,6 +46,10 @@ public class OFMStaticFlowEntryManager extends OFModule implements IStaticFlowEn
 		return protocol;
 	}
 
+	protected StaticFlowEntryStorage getStaticFlowEntryStorage() {
+		return flowEntryStorage;
+	}
+	
 	protected OFMStorageManager getDB(){
 		return flowEntryDB;
 	}
