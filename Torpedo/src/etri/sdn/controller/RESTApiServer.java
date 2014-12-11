@@ -78,6 +78,7 @@ public class RESTApiServer {
             final Component component = new Component();
             component.getServers().add(Protocol.HTTP, port);
             component.getClients().add(Protocol.FILE);
+            component.getClients().add(Protocol.HTTP);
             component.getDefaultHost().attach(application);
             component.start();
         } catch (Exception e) {

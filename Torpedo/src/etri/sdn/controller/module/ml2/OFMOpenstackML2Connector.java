@@ -47,6 +47,7 @@ import etri.sdn.controller.module.ml2.RestPort.PortDefinition;
 import etri.sdn.controller.module.ml2.RestSubnet.SubnetDefinition;
 import etri.sdn.controller.module.routing.IRoutingDecision;
 import etri.sdn.controller.module.routing.RoutingDecision;
+import etri.sdn.controller.module.tunnelmanager.OFMTunnelManager;
 import etri.sdn.controller.protocol.OFProtocol;
 import etri.sdn.controller.protocol.io.Connection;
 import etri.sdn.controller.protocol.io.IOFSwitch;
@@ -445,6 +446,9 @@ public class OFMOpenstackML2Connector extends OFModule implements IOpenstackML2C
 			vNetsByGuid.get(netId).setProviderSegmentationId(provider_segmentation_id);		//network already exists, just updating provider:segmentation_id
 		} else {
 			vNetsByGuid.put(netId, new VirtualNetwork(network)); //new network
+			
+			OFMTunnelManager tm = new OFMTunnelManager();
+			tm.create_network_flow(network);
 		}
 
 	}
@@ -493,6 +497,9 @@ public class OFMOpenstackML2Connector extends OFModule implements IOpenstackML2C
 				}
 			}
 		}
+		
+		OFMTunnelManager tm = new OFMTunnelManager();
+		tm.delete_network_flow(netId);
 	}
 
 	@Override
@@ -722,6 +729,9 @@ public class OFMOpenstackML2Connector extends OFModule implements IOpenstackML2C
 			vPorsByGuid.get(porId).setMACAddress(mac_address);
 		} else {
 			vPorsByGuid.put(porId, new VirtualPort(port));	// create new port
+			
+			OFMTunnelManager tm = new OFMTunnelManager();
+			tm.create_port_flow(port);
 		}
 		
 		if (port.mac_address != null && port.device_owner != null) {
@@ -739,6 +749,9 @@ public class OFMOpenstackML2Connector extends OFModule implements IOpenstackML2C
 		}
 		
 		macToGuid.remove(porId);
+		
+		OFMTunnelManager tm = new OFMTunnelManager();
+		tm.delete_port_flow(porId);
 	}
 	
 	@Override
