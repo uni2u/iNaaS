@@ -15,7 +15,7 @@ import etri.sdn.controller.module.firewall.OFMFirewall;
 import etri.sdn.controller.module.forwarding.Forwarding;
 import etri.sdn.controller.module.linkdiscovery.OFMLinkDiscovery;
 import etri.sdn.controller.module.ml2.OFMOpenstackML2Connector;
-import etri.sdn.controller.module.netfailover.OFMNetFailover;
+//import etri.sdn.controller.module.netfailover.OFMNetFailover;
 import etri.sdn.controller.module.statemanager.OFMStateManager;
 import etri.sdn.controller.module.staticentrymanager.OFMStaticFlowEntryManager;
 import etri.sdn.controller.module.storagemanager.OFMStorageManager;
@@ -36,7 +36,7 @@ public class BasicTunnelController extends OFController {
 	private Forwarding m_forwarding = new Forwarding();
 	private OFMFirewall m_firewall = new OFMFirewall();
 	private OFMStaticFlowEntryManager m_staticflow = new OFMStaticFlowEntryManager();
-	private OFMNetFailover m_netfailover = new OFMNetFailover();
+//	private OFMNetFailover m_netfailover = new OFMNetFailover();
 	private OFMOpenstackML2Connector m_ml2 = new OFMOpenstackML2Connector();
 	private OFMTunnelManager m_tunnel_manager = new OFMTunnelManager();
 	
@@ -46,7 +46,7 @@ public class BasicTunnelController extends OFController {
 			m_entity_classifier, 
 			m_device_manager,
 			m_firewall,
-			m_ml2,
+//			m_ml2,
 			m_tunnel_manager,
 			m_forwarding
 	};
@@ -72,7 +72,7 @@ public class BasicTunnelController extends OFController {
 		m_tunnel_manager.init(this);
 		m_forwarding.init(this);
 		m_staticflow.init(this);			// this is not a part of the pipeline.
-		m_netfailover.init(this);
+//		m_netfailover.init(this);
 	}
 
 	@Override
