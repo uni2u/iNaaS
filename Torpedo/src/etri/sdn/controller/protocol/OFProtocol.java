@@ -538,6 +538,16 @@ public class OFProtocol {
 			}
 			break;
 
+		case FLOW_REMOVED:
+			if ( sw.getStringId() == null ) {
+				// FEATURES_REPLY is not received.
+				return false;
+			}
+
+			if ( !getController().handlePacketIn(conn, context, m) ) {
+				return false;
+			}
+			break;
 		default:
 			if ( !getController().handleGeneric(conn, context, m) ) {
 				return false;
@@ -778,6 +788,7 @@ public class OFProtocol {
 			ret.setExact(MatchField.IPV4_SRC, IPv4Address.of(packetDataBB.getInt()));
 			ret.setExact(MatchField.IPV4_DST, IPv4Address.of(packetDataBB.getInt()));
 			
+		
 			packetDataBB.position(transportOffset);
 			break;
 			
