@@ -206,6 +206,10 @@ public class OFMTunnelManager extends OFModule implements IOFMTunnelManagerServi
 			EthType etherType = null;
 			etherType = EthType.of(etherPacket.getEtherType());
 			
+			if(etherType.getValue() == 0xffff86dd) {
+				etherType = EthType.IPv6;
+			}
+			
 			Match.Builder match = fac.buildMatch();
 			match.setExact(MatchField.IN_PORT, pi.getInPort());
 			match.setExact(MatchField.ETH_TYPE, etherType);
@@ -239,7 +243,7 @@ public class OFMTunnelManager extends OFModule implements IOFMTunnelManagerServi
 			conn.write(fm.build());
 		}
 		
-		return true;
+		return false;
 	}
 	
 	@Override
