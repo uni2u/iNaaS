@@ -3,7 +3,13 @@ package etri.sdn.controller.module.vxlanflowmapper;
 
 
 
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.io.OutputStreamWriter;
+import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -15,7 +21,11 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
-import org.codehaus.jackson.JsonNode;
+
+
+
+
+
 import org.codehaus.jackson.map.MappingJsonFactory;
 import org.codehaus.jackson.map.ObjectMapper;
 import org.codehaus.jackson.type.TypeReference;
@@ -25,12 +35,18 @@ import org.restlet.Restlet;
 import org.restlet.data.MediaType;
 import org.slf4j.Logger;
 
-import etri.sdn.controller.IService;
+
+
+
+
+
 import etri.sdn.controller.OFModel;
 import etri.sdn.controller.OFModel.RESTApi;
 import etri.sdn.controller.module.staticentrymanager.IStaticFlowEntryService;
 
 import java.net.MalformedURLException;
+
+import javax.swing.text.html.HTMLDocument.Iterator;
 
 
 public class VxlanFlowMappingStorage extends OFModel  {
@@ -69,9 +85,19 @@ public class VxlanFlowMappingStorage extends OFModel  {
 	public OverlayFlowMappingEntry<String, String> addO2VEnrty (String o2VKey, OverlayFlowMappingEntry<String, String> entry) {
 		
 		OverlayFlowMappingEntry<String, String> ret = O2V.put(o2VKey, entry);
+	
 		if (ret == null) {
 			Set<String> keySet = O2V.keySet();
-			System.out.println ("+++++ADDED KEY: " + o2VKey +", O2V Table Size is " + keySet.size() + "\n" + keySet);
+//			System.out.println ("+++++ADDED KEY: " + o2VKey +", O2V Table Size is " + keySet.size() + "\n" + keySet);
+			try {
+				
+				for (URL url : notificationList) {
+					sendNotification(url, entry);	
+				}
+			}  catch ( Exception e ) {
+				e.printStackTrace();			
+			}
+			
 //			System.out.println(keySet);
 //			Iterator<String> iter = O2V.keySet().iterator();
 //			while (iter != null && iter.hasNext()) {
@@ -86,7 +112,7 @@ public class VxlanFlowMappingStorage extends OFModel  {
 		OverlayFlowMappingEntry<String, String> ret = V2O.put(v2OKey, entry);
 		if (ret == null) { 
 			Set<String> keySet = V2O.keySet();
-			System.out.println ("+++++ADDED KEY: " + v2OKey +", V2O Table Size is " + keySet.size() + "\n" + keySet);
+//			System.out.println ("+++++ADDED KEY: " + v2OKey +", V2O Table Size is " + keySet.size() + "\n" + keySet);
 			//System.out.println(keySet);
 //			Iterator<String> iter = V2O.keySet().iterator();
 //			while (iter != null && iter.hasNext()) {
@@ -102,7 +128,7 @@ public class VxlanFlowMappingStorage extends OFModel  {
 		OverlayFlowMappingEntry<String, String> ret = O2V.remove(o2VKey);
 		if (ret != null) {
 			Set<String> keySet = O2V.keySet();
-			System.out.println ("-----REMOVED KEY: " + o2VKey +", O2V Table Size is " + keySet.size() + "\n" + keySet);
+//			System.out.println ("-----REMOVED KEY: " + o2VKey +", O2V Table Size is " + keySet.size() + "\n" + keySet);
 			
 //			System.out.println(keySet);
 //			Iterator<String> iter = O2V.keySet().iterator();
@@ -118,7 +144,7 @@ public class VxlanFlowMappingStorage extends OFModel  {
 		OverlayFlowMappingEntry<String, String> ret = V2O.remove(v2OKey);
 		if (ret != null) {
 			Set<String> keySet = V2O.keySet();
-			System.out.println ("-----REMOVED KEY: " + v2OKey +", V2O Table Size is " + keySet.size() + "\n" + keySet);
+//			System.out.println ("-----REMOVED KEY: " + v2OKey +", V2O Table Size is " + keySet.size() + "\n" + keySet);
 //			System.out.println(keySet);
 //			Iterator<String> iter = V2O.keySet().iterator();
 //			while (iter != null && iter.hasNext()) {
@@ -145,6 +171,54 @@ public class VxlanFlowMappingStorage extends OFModel  {
 		return vnid;
 	}
 	
+	private boolean sendNotification (URL url, OverlayFlowMappingEntry<String, String> entry) {
+		String outerSrcMac = (String) entry.get("outerSrcMac");
+		String outerDstMac = (String) entry.get("outerDstMac");
+		String outerSrcIp = (String) entry.get("outerSrcIP");
+		String outerDstIp = (String) entry.get("outerDstIP");
+		String outerSrcUdpPort = (String) entry.get("outerSrcPort");
+		String innerSrcMac = entry.get("innerSrcMac");
+		String innerDstMac = entry.get("innerDstMac");
+		String innerEtherType = entry.get("innerEtherType");
+		String innerSrcIp = entry.get("innerSrcIP");
+		String innerDstIp = entry.get("innerDstIP");
+		String vnid = entry.get("vnid");
+		
+		List<HeaderInfoPair> pairs = new LinkedList<HeaderInfoPair>();
+		OuterPacketHeader outerPacket = new OuterPacketHeader.Builder().srcMac(outerSrcMac).dstMac(outerDstMac).srcIp(outerSrcIp).dstIp(outerDstIp).udpPort(outerSrcUdpPort).build();
+		OrginalPacketHeader orgPacket = new OrginalPacketHeader.Builder().srcMac(innerSrcMac).dstMac(innerDstMac).srcIp(innerSrcIp).dstIp(innerDstIp).vnid(vnid).etherType(innerEtherType).build();
+		pairs.add(new HeaderInfoPair(outerPacket, orgPacket));
+		
+		try {
+			MappingJsonFactory f = new MappingJsonFactory();	
+			ObjectMapper mapper = new ObjectMapper(f);
+			P2VResponse reply = new P2VResponse(pairs);
+			String output =  mapper.defaultPrettyPrintingWriter().writeValueAsString(reply);
+//			System.out.println (output);
+					
+			HttpURLConnection connection  = (HttpURLConnection)url.openConnection();
+			connection.setRequestMethod("POST");
+//            connection.setRequestProperty("X-HTTP-Method-Override", "DELETE");
+//            connection.setConnectTimeout(3000);
+//            connection.setReadTimeout(3000);
+            connection.setDoInput(true);
+            connection.setDoOutput(true);
+            connection.setRequestProperty("Accept", "application/json");
+            connection.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
+			OutputStream os = connection.getOutputStream();
+			os.write(output.getBytes());
+			os.flush();
+			os.close();
+			BufferedReader br = new BufferedReader(new InputStreamReader(connection.getInputStream()));
+			br.close();
+
+			connection.disconnect();
+		} catch ( Exception e ) {
+			e.printStackTrace();			
+		}
+		return true;
+	}
+	
 	private RESTApi[] apis = {
 			/*
 			 * LIST example
@@ -160,13 +234,8 @@ public class VxlanFlowMappingStorage extends OFModel  {
 							
 							
 							try {
-//								JsonNode rootNode = mapper.readTree(request.getEntityAsText());
-//								System.out.println(rootNode.getFieldNames().toString());
-								
 								Map<String, Object> map = mapper.readValue(req, new TypeReference<Map<String, Object>>() {});
 								ArrayList<?> list =  (ArrayList<?>) map.get("outerList");
-//								System.out.println(map);
-//								System.out.println(list);
 								List<HeaderInfoPair> pairs = new LinkedList<HeaderInfoPair>();
 								for (int i=0; i < list.size(); i++) {
 									HashMap<?, ?> m = (HashMap<?, ?>) list.get(i);
@@ -176,15 +245,8 @@ public class VxlanFlowMappingStorage extends OFModel  {
 									String outerDstIp = (String) m.get("dstIp");
 									String outerSrcUdpPort = (String) m.get("srcUdpPort");
 									
-									
 									String key = outerSrcMac.toUpperCase() + " " + outerDstMac.toUpperCase() + " " + outerSrcIp + " " + outerDstIp + " " + outerSrcUdpPort;
-									
 									Map<String, String> o2VEntry = O2V.get(key);
-									
-									
-//									System.out.println ("KEY : " + key);
-//									System.out.println("O2V Entry: " + O2V.get(key));
-									
 									OuterPacketHeader outerPacket = new OuterPacketHeader.Builder().srcMac(outerSrcMac).dstMac(outerDstMac).srcIp(outerSrcIp).dstIp(outerDstIp).udpPort(outerSrcUdpPort).build();
 									OrginalPacketHeader orgPacket;
 									
@@ -202,17 +264,31 @@ public class VxlanFlowMappingStorage extends OFModel  {
 															
 								}
 								P2VResponse reply = new P2VResponse(pairs);
-//								ObjectMapper objMapper = new ObjectMapper();
 								String output = null;
 								output = mapper.defaultPrettyPrintingWriter().writeValueAsString(reply);
-							
-								
-//								String r = mapper.writeValueAsString("Test");
 								response.setEntity(output, MediaType.APPLICATION_JSON);
 							} catch ( Exception e ) {
 								e.printStackTrace();
 							
 							}
+						}
+			}),
+			new RESTApi("/wm/vxlanflowmapper/register_test1/json",
+					new Restlet() {
+						public  void handle(Request request, Response response) {
+								
+							String req = request.getEntityAsText();
+							System.out.println("1111111111111111111111111111111111111111111111 " + req);
+														
+						}
+			}),
+			new RESTApi("/wm/vxlanflowmapper/register_test2/json",
+					new Restlet() {
+						public  void handle(Request request, Response response) {
+								
+							String req = request.getEntityAsText();
+							System.out.println("2222222222222222222222222222222222222222222222" + req);
+														
 						}
 			}),
 			new RESTApi("/wm/vxlanflowmapper/register/json",
@@ -230,7 +306,7 @@ public class VxlanFlowMappingStorage extends OFModel  {
 								} else reply = "URL Already Registered : " + url.toString();
 								String r = mapper.writeValueAsString(reply);
 								response.setEntity(r, MediaType.APPLICATION_JSON);
-								System.out.println(notificationList);
+//								System.out.println(notificationList);
 								
 							} catch (MalformedURLException  e) {
 								e.printStackTrace();
