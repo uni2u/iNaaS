@@ -19,6 +19,7 @@ import etri.sdn.controller.module.statemanager.OFMStateManager;
 import etri.sdn.controller.module.staticentrymanager.OFMStaticFlowEntryManager;
 import etri.sdn.controller.module.storagemanager.OFMStorageManager;
 import etri.sdn.controller.module.topologymanager.OFMTopologyManager;
+import etri.sdn.controller.module.vxlanflowmapper.OFVxlanFlowMappingManager;
 import etri.sdn.controller.module.ui.OFMUserInterface;
 import etri.sdn.controller.protocol.io.Connection;
 
@@ -35,12 +36,15 @@ public class BasicOFController extends OFController {
 	private OFMFirewall m_firewall = new OFMFirewall();
 	private OFMStaticFlowEntryManager m_staticflow = new OFMStaticFlowEntryManager();
 	private OFMNetFailover m_netfailover = new OFMNetFailover();
+	private OFVxlanFlowMappingManager<String,String> m_vxlanflowmapper_manager = new OFVxlanFlowMappingManager<String,String>();
+	
 	
 	private OFModule[] packet_in_pipeline = { 
 			m_link_discovery, 
 			m_topology_manager,
 			m_entity_classifier, 
 			m_device_manager,
+			m_vxlanflowmapper_manager,
 			m_firewall,
 			m_forwarding
 	};
@@ -65,6 +69,7 @@ public class BasicOFController extends OFController {
 		m_forwarding.init(this);
 		m_staticflow.init(this);			// this is not a part of the pipeline.
 		m_netfailover.init(this);
+		m_vxlanflowmapper_manager.init(this);
 	}
 
 	@Override
