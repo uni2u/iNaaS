@@ -47,10 +47,8 @@ import etri.sdn.controller.OFModule;
 import etri.sdn.controller.module.ml2.RestNetwork.NetworkDefinition;
 import etri.sdn.controller.module.ml2.RestPort.PortDefinition;
 import etri.sdn.controller.module.routing.IRoutingDecision;
-import etri.sdn.controller.protocol.OFProtocol;
 import etri.sdn.controller.protocol.io.Connection;
 import etri.sdn.controller.protocol.packet.Ethernet;
-import etri.sdn.controller.util.MACAddress;
 
 public class OFMTunnelManager extends OFModule implements IOFMTunnelManagerService {
 	
@@ -72,8 +70,6 @@ public class OFMTunnelManager extends OFModule implements IOFMTunnelManagerServi
 	}
 	
 	private TunnelConfiguration tunConf = null;
-	@SuppressWarnings("unused")
-	private OFProtocol protocol;
 	
 	public static final String TUNNEL_TYPE = "vxlan";
 	
@@ -88,6 +84,7 @@ public class OFMTunnelManager extends OFModule implements IOFMTunnelManagerServi
 	private static final int MAX_VLAN_TAG = 4094;
 	
 	protected static Map<String, NodeDefinition> nodesByIp;
+	protected static Map<String, Long> intDpidByIp;
 	protected static Map<String, NetworkDefinition> vNetsByGuid;	// List of all created virtual networks
 	protected static Map<String, PortDefinition> vPortsByGuid;	// List of all created virtual networks
 	
@@ -104,9 +101,8 @@ public class OFMTunnelManager extends OFModule implements IOFMTunnelManagerServi
 
 	@Override
 	protected void initialize() {
-		this.protocol = getController().getProtocol();
-		
 		nodesByIp = new ConcurrentHashMap<String, NodeDefinition>();
+		intDpidByIp = new ConcurrentHashMap<String, Long>();
 		vNetsByGuid = new ConcurrentHashMap<String, NetworkDefinition>();
 		vPortsByGuid = new ConcurrentHashMap<String, PortDefinition>();
 		
@@ -192,80 +188,55 @@ public class OFMTunnelManager extends OFModule implements IOFMTunnelManagerServi
 	}
 	
 	private boolean processPacketInMessage(Connection conn, OFMessage msg, IRoutingDecision decision, MessageContext cntx){
-		OFPacketIn pi = (OFPacketIn) msg;
+//System.out.println("PACKET_IN : " + conn.getSwitch().getId());
 		
-		OFFactory fac = OFFactories.getFactory(pi.getVersion());
-		OFFlowMod.Builder fm = fac.buildFlowAdd();
-		
-		fm.setHardTimeout(0)
-		  .setIdleTimeout(5)
-		  .setPriority(1);
-		
-System.out.println("=========================================");
-Match piMatch = null;
-try { 
-	piMatch = pi.getMatch();
-} catch ( UnsupportedOperationException u ) {
-	piMatch = this.protocol.loadOFMatchFromPacket(conn.getSwitch(), pi, pi.getInPort(), true);
-}
-
-System.out.println("conn.getSwitch() : " + conn.getSwitch());
-System.out.println("piMatch : " + piMatch);
-
-//
-//EthType etherType = piMatch.get(MatchField.ETH_TYPE);
-//MacAddress sourceMac = piMatch.get(MatchField.ETH_SRC);
-//MacAddress destMac = piMatch.get(MatchField.ETH_DST);
-//
-//System.out.println("conn.getSwitch() : " + conn.getSwitch());
-//System.out.println("pi.getInPort() : " + pi.getInPort());
-//System.out.println("piMatch : " + piMatch);
-//System.out.println("pi.getData() : " + HexString.toHexString(pi.getData()));
-//System.out.println("sourceMac : " + sourceMac);
-//System.out.println("destMac : " + destMac);
-//System.out.println("etherType : " + etherType.getValue());
-//String etherType_hex = "0x"+Integer.toHexString(etherType.getValue()).toString();
-//System.out.println("etherType_hex" + etherType_hex);
-
-System.out.println("=========================================");
-		
-		
-		Ethernet etherPacket = new Ethernet();
-		etherPacket.deserialize(pi.getData(), 0, pi.getData().length);
-		EthType etherType = null;
-		etherType = EthType.of(etherPacket.getEtherType());
-		
-		Match.Builder match = fac.buildMatch();
-		match.setExact(MatchField.IN_PORT, pi.getInPort());
-		match.setExact(MatchField.ETH_TYPE, etherType);
-		
-		fm.setMatch(match.build());
-		
-		List<OFAction> actions = new ArrayList<OFAction>();
-		OFActionOutput.Builder action = fac.actions().buildOutput();
-		action.setPort(OFPort.NORMAL);
-		actions.add(action.build());
-		fm.setActions(actions);
-		
-		if ( pi.getBufferId() != OFBufferId.NO_BUFFER ) {
-			fm.setBufferId( pi.getBufferId() );
-		} else {
-			OFPacketOut.Builder po = fac.buildPacketOut();
-			try {
-				po
-				.setData( pi.getData() )
-				.setInPort( pi.getInPort() );
-			} catch (UnsupportedOperationException e) {
-				// this exception might be because of setInPort (1.3 does not support it.)
-				// just ignore.
+		if(intDpidByIp.containsValue(conn.getSwitch().getId())) {
+			OFPacketIn pi = (OFPacketIn) msg; 
+			
+			OFFactory fac = OFFactories.getFactory(pi.getVersion());
+			OFFlowMod.Builder fm = fac.buildFlowAdd();
+			
+			fm.setHardTimeout(0);
+			fm.setIdleTimeout(5);
+			fm.setPriority(1);
+			
+			Ethernet etherPacket = new Ethernet();
+			etherPacket.deserialize(pi.getData(), 0, pi.getData().length);
+			EthType etherType = null;
+			etherType = EthType.of(etherPacket.getEtherType());
+			
+			Match.Builder match = fac.buildMatch();
+			match.setExact(MatchField.IN_PORT, pi.getInPort());
+			match.setExact(MatchField.ETH_TYPE, etherType);
+			
+			fm.setMatch(match.build());
+			
+			List<OFAction> actions = new ArrayList<OFAction>();
+			OFActionOutput.Builder action = fac.actions().buildOutput();
+			action.setPort(OFPort.NORMAL);
+			actions.add(action.build());
+			fm.setActions(actions);
+			
+			if ( pi.getBufferId() != OFBufferId.NO_BUFFER ) {
+				fm.setBufferId( pi.getBufferId() );
+			} else {
+				OFPacketOut.Builder po = fac.buildPacketOut();
+				try {
+					po
+					.setData( pi.getData() )
+					.setInPort( pi.getInPort() );
+				} catch (UnsupportedOperationException e) {
+					// this exception might be because of setInPort (1.3 does not support it.)
+					// just ignore.
+				}
+				
+				po.setActions( Arrays.<OFAction>asList( fac.actions().output(OFPort.NORMAL, 0) ) );
+				
+				conn.write(po.build());
 			}
 			
-			po.setActions( Arrays.<OFAction>asList( fac.actions().output(OFPort.NORMAL, 0) ) );
-			
-			conn.write(po.build());
+			conn.write(fm.build());
 		}
-		
-		conn.write(fm.build());
 		
 		return true;
 	}
@@ -296,6 +267,9 @@ System.out.println("=========================================");
 				nodesByIp.put(local_ip, nodeInfo);
 				
 				setup_bridge(local_ip, OVSDB_SERVER_REMOTE_PORT, iris_ip);
+				
+//System.out.println("intDpidByIp >>> " + local_ip + " : " + TunnelOvs.get_sw_dpid(local_ip, OVSDB_SERVER_REMOTE_PORT, INTEGRATION_BRIDGE_NAME));
+//				intDpidByIp.put(local_ip, TunnelOvs.get_sw_dpid(local_ip, OVSDB_SERVER_REMOTE_PORT, INTEGRATION_BRIDGE_NAME));
 				
 				// tunnel create ( new node <--> exist node )
 				if(!nodesByIp.isEmpty() && nodesByIp.size() > 1) {
@@ -340,6 +314,7 @@ System.out.println("=========================================");
 			Thread.sleep(500);
 			TunnelOvs.add_bridge(ovsdb_server_remote_ip, ovsdb_server_remote_port, TUNNELING_BRIDGE_NAME);
 			Thread.sleep(500);
+			intDpidByIp.put(ovsdb_server_remote_ip, TunnelOvs.get_sw_dpid(ovsdb_server_remote_ip, ovsdb_server_remote_port, INTEGRATION_BRIDGE_NAME));
 			
 			TunnelOvs.add_patch_port(ovsdb_server_remote_ip, ovsdb_server_remote_port, INTEGRATION_BRIDGE_NAME, INT_PEER_PATCH_PORT, TUN_PEER_PATCH_PORT);
 			Thread.sleep(500);
@@ -459,13 +434,13 @@ System.out.println("=========================================");
 					nodesByIp.get(network_node_ip).local_vNetidToVlanid = new ConcurrentHashMap<String, String>();
 				}
 				nodesByIp.get(network_node_ip).local_vNetidToVlanid.put(network.netId, mod_vlan_vid);
-				
-				// change sync true
-				nodesByIp.get(network_node_ip).flow_sync = true;
 
 				String tun_id = "0x"+Integer.toHexString(Integer.parseInt(network.provider_segmentation_id)).toString();
 
 				run_cmd_rest(network_node_ip, "8000", "sudo ovs-ofctl add-flow "+TUNNELING_BRIDGE_NAME+" hard_timeout=0,idle_timeout=0,table="+TunnelFlow.VXLAN_TUN_TO_LV+",priority=1,tun_id="+tun_id+",actions=mod_vlan_vid:"+mod_vlan_vid+",resubmit(,"+TunnelFlow.LEARN_FROM_TUN+")");
+				
+				// change sync true
+				nodesByIp.get(network_node_ip).flow_sync = true;
 			} catch(Exception e) {
 				logger.error("Unable to create_network_flow. Exception : {}", e.getMessage());
 			}
@@ -479,19 +454,21 @@ System.out.println("=========================================");
 		
 		if(!nodesByIp.isEmpty()) {
 			for(Entry<String, NodeDefinition> entry : nodesByIp.entrySet()) {
-				String vlan_id = nodesByIp.get(entry.getKey()).local_vNetidToVlanid.get(network_id);
-				String segmentation_id = nodesByIp.get(entry.getKey()).used_local_vNetsByGuid.get(network_id).provider_segmentation_id;
-				String tun_id = "0x"+Integer.toHexString(Integer.parseInt(segmentation_id)).toString();
-				
-				logger.debug("delFlow(delete_network_flow) : IP - {}, FLOW - {}", entry.getKey(), "sudo ovs-ofctl del-flows "+TUNNELING_BRIDGE_NAME+" table="+TunnelFlow.FLOOD_TO_TUN+",dl_vlan="+vlan_id);
-				run_cmd_rest(entry.getKey(), "8000", "sudo ovs-ofctl del-flows "+TUNNELING_BRIDGE_NAME+" table="+TunnelFlow.FLOOD_TO_TUN+",dl_vlan="+vlan_id);
-				logger.debug("delFlow(delete_network_flow) : IP - {}, FLOW - {}", entry.getKey(), "sudo ovs-ofctl del-flows "+TUNNELING_BRIDGE_NAME+" table="+TunnelFlow.VXLAN_TUN_TO_LV+",tun_id="+tun_id);
-				run_cmd_rest(entry.getKey(), "8000", "sudo ovs-ofctl del-flows "+TUNNELING_BRIDGE_NAME+" table="+TunnelFlow.VXLAN_TUN_TO_LV+",tun_id="+tun_id);
-				
-				nodesByIp.get(entry.getKey()).available_local_vlans.add(Integer.parseInt(vlan_id));
-				nodesByIp.get(entry.getKey()).used_local_vNetsByVlanid.remove(vlan_id);
-				nodesByIp.get(entry.getKey()).used_local_vNetsByGuid.remove(network_id);
-				nodesByIp.get(entry.getKey()).local_vNetidToVlanid.remove(network_id);
+				if(nodesByIp.get(entry.getKey()).used_local_vNetsByGuid != null && nodesByIp.get(entry.getKey()).used_local_vNetsByGuid.containsKey(network_id)) {
+					String vlan_id = nodesByIp.get(entry.getKey()).local_vNetidToVlanid.get(network_id);
+					String segmentation_id = nodesByIp.get(entry.getKey()).used_local_vNetsByGuid.get(network_id).provider_segmentation_id;
+					String tun_id = "0x"+Integer.toHexString(Integer.parseInt(segmentation_id)).toString();
+					
+					logger.debug("delFlow(delete_network_flow) : IP - {}, FLOW - {}", entry.getKey(), "sudo ovs-ofctl del-flows "+TUNNELING_BRIDGE_NAME+" table="+TunnelFlow.FLOOD_TO_TUN+",dl_vlan="+vlan_id);
+					run_cmd_rest(entry.getKey(), "8000", "sudo ovs-ofctl del-flows "+TUNNELING_BRIDGE_NAME+" table="+TunnelFlow.FLOOD_TO_TUN+",dl_vlan="+vlan_id);
+					logger.debug("delFlow(delete_network_flow) : IP - {}, FLOW - {}", entry.getKey(), "sudo ovs-ofctl del-flows "+TUNNELING_BRIDGE_NAME+" table="+TunnelFlow.VXLAN_TUN_TO_LV+",tun_id="+tun_id);
+					run_cmd_rest(entry.getKey(), "8000", "sudo ovs-ofctl del-flows "+TUNNELING_BRIDGE_NAME+" table="+TunnelFlow.VXLAN_TUN_TO_LV+",tun_id="+tun_id);
+					
+					nodesByIp.get(entry.getKey()).available_local_vlans.add(Integer.parseInt(vlan_id));
+					nodesByIp.get(entry.getKey()).used_local_vNetsByVlanid.remove(vlan_id);
+					nodesByIp.get(entry.getKey()).used_local_vNetsByGuid.remove(network_id);
+					nodesByIp.get(entry.getKey()).local_vNetidToVlanid.remove(network_id);
+				}
 			}
 		}
 	}
@@ -600,8 +577,6 @@ System.out.println("=========================================");
 			}
 		} else if("compute:nova".equals(device_owner)) {
 			String compute_node_ip = "";
-			String vlan_id = nodesByIp.get(compute_node_ip).local_vNetidToVlanid.get(network_id);
-			String tun_id = "0x"+Integer.toHexString(Integer.parseInt(vNetsByGuid.get(network_id).provider_segmentation_id)).toString();
 			
 			for(Entry<String, NodeDefinition> entryMap : nodesByIp.entrySet()) {
 				if(binding_host_id.equals(entryMap.getValue().node_name)) {
@@ -610,6 +585,9 @@ System.out.println("=========================================");
 			}
 			
 			if(!"".equals(compute_node_ip)) {
+				String vlan_id = nodesByIp.get(compute_node_ip).local_vNetidToVlanid.get(network_id);
+				String tun_id = "0x"+Integer.toHexString(Integer.parseInt(vNetsByGuid.get(network_id).provider_segmentation_id)).toString();
+
 				if(nodesByIp.get(compute_node_ip).used_local_vPortsByGuid != null && nodesByIp.get(compute_node_ip).used_local_vPortsByGuid.containsKey(portId)) {
 					nodesByIp.get(compute_node_ip).used_local_vPortsByGuid.remove(portId);
 				}
@@ -742,6 +720,7 @@ System.out.println("=========================================");
 						String delTunName = TUNNEL_TYPE + "-" + HexString.toHexString(InetAddress.getByName(entry.getKey()).getAddress()).replaceAll(":", "");
 						
 						nodesByIp.remove(entry.getKey());
+						intDpidByIp.remove(entry.getKey());
 						
 						for(Entry<String, NodeDefinition> deleteEntry : nodesByIp.entrySet()) {
 							String in_port = TunnelOvs.get_port_ofport(deleteEntry.getKey(), OVSDB_SERVER_REMOTE_PORT, delTunName);
