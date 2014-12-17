@@ -458,7 +458,7 @@ public class OFMOpenstackML2Connector extends OFModule implements IOpenstackML2C
 		String netName = null;
 
 		if(netNameToGuid.isEmpty()) {
-			logger.debug("Could not delete network with ID {}, network doesn't exist", netId);
+			logger.debug("_Could not delete network with ID {}, network doesn't exist", netId);
 			return;
 		}
 
