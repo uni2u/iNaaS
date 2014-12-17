@@ -55,9 +55,10 @@ public class OFMTunnelManager extends OFModule implements IOFMTunnelManagerServi
 	public static final Logger logger = LoggerFactory.getLogger(OFMTunnelManager.class);
 	
 	public class NodeDefinition {
-		public boolean flow_sync = true;
-		public boolean tag_sync = true;
-		public String node_ip = null;
+		public boolean flow_sync = false;
+		public boolean tag_sync = false;
+		public String node_ip_mgt = null;
+		public String node_ip_tun = null;
 		public String node_name = null;
 		public String node_type = null;
 		public String current_time = null;
@@ -242,31 +243,32 @@ public class OFMTunnelManager extends OFModule implements IOFMTunnelManagerServi
 	}
 	
 	@Override
-	public void addTunnel(String node_ip, String node_name, String node_type, String iris_ip) {
+	public void addTunnel(String node_ip_mgt, String node_ip_tun, String node_name, String node_type, String iris_ip) {
 		Date now = new Date(System.currentTimeMillis());
 		SimpleDateFormat simpledateformat = new SimpleDateFormat("yyyyMMddHHmm");
 		String current_time = simpledateformat.format(now);
 		
-		String local_ip = node_ip;
-		String remote_ip = "";
+//		String local_ip = node_ip;
+//		String remote_ip = "";
 		
 		try {
-			if(!nodesByIp.containsKey(local_ip)) {
+			if(!nodesByIp.containsKey(node_ip_mgt)) {
 				ArrayList<Integer> init_vlans = new ArrayList<Integer>();
 				for (int i = MIN_VLAN_TAG ; i <= MAX_VLAN_TAG ; i++) {
 					init_vlans.add(i);
 				}
 				
 				NodeDefinition nodeInfo = new NodeDefinition();
-				nodeInfo.node_ip = local_ip;
+				nodeInfo.node_ip_mgt = node_ip_mgt;
+				nodeInfo.node_ip_tun = node_ip_tun;
 				nodeInfo.node_name = node_name;
 				nodeInfo.node_type = node_type;
 				nodeInfo.current_time = current_time;
 				nodeInfo.available_local_vlans = init_vlans;
 				
-				nodesByIp.put(local_ip, nodeInfo);
+				nodesByIp.put(node_ip_mgt, nodeInfo);
 				
-				setup_bridge(local_ip, OVSDB_SERVER_REMOTE_PORT, iris_ip);
+				setup_bridge(node_ip_mgt, OVSDB_SERVER_REMOTE_PORT, iris_ip);
 				
 //System.out.println("intDpidByIp >>> " + local_ip + " : " + TunnelOvs.get_sw_dpid(local_ip, OVSDB_SERVER_REMOTE_PORT, INTEGRATION_BRIDGE_NAME));
 //				intDpidByIp.put(local_ip, TunnelOvs.get_sw_dpid(local_ip, OVSDB_SERVER_REMOTE_PORT, INTEGRATION_BRIDGE_NAME));
@@ -274,28 +276,31 @@ public class OFMTunnelManager extends OFModule implements IOFMTunnelManagerServi
 				// tunnel create ( new node <--> exist node )
 				if(!nodesByIp.isEmpty() && nodesByIp.size() > 1) {
 					for(Entry<String, NodeDefinition> entry : nodesByIp.entrySet()) {
-						remote_ip = entry.getKey();
+						String remote_ip_mgt = entry.getKey();
+						String remote_ip_tun = entry.getValue().node_ip_tun;
 						
-						if(!remote_ip.equals(local_ip)) {
-							setup_tunnel_port(local_ip,
+						if(!remote_ip_mgt.equals(node_ip_mgt)) {
+							setup_tunnel_port(node_ip_mgt,
 									OVSDB_SERVER_REMOTE_PORT,
 									TUNNELING_BRIDGE_NAME,
-									TUNNEL_TYPE + "-" + HexString.toHexString(InetAddress.getByName(remote_ip).getAddress()).replaceAll(":", ""),
-									remote_ip);
+									TUNNEL_TYPE + "-" + HexString.toHexString(InetAddress.getByName(remote_ip_tun).getAddress()).replaceAll(":", ""),
+									node_ip_tun,
+									remote_ip_tun);
 							
-							setup_tunnel_port(remote_ip,
+							setup_tunnel_port(remote_ip_mgt,
 									OVSDB_SERVER_REMOTE_PORT,
 									TUNNELING_BRIDGE_NAME,
-									TUNNEL_TYPE + "-" + HexString.toHexString(InetAddress.getByName(local_ip).getAddress()).replaceAll(":", ""),
-									local_ip);
+									TUNNEL_TYPE + "-" + HexString.toHexString(InetAddress.getByName(node_ip_tun).getAddress()).replaceAll(":", ""),
+									remote_ip_tun,
+									node_ip_tun);
 						}
 					}
 				}
 			}
 			
-			nodesByIp.get(local_ip).current_time = current_time;
-			nodesByIp.get(local_ip).node_name = node_name;
-			nodesByIp.get(local_ip).node_type = node_type;
+			nodesByIp.get(node_ip_mgt).current_time = current_time;
+			nodesByIp.get(node_ip_mgt).node_name = node_name;
+			nodesByIp.get(node_ip_mgt).node_type = node_type;
 		} catch (Exception e) {
 			logger.error("Unable to create tunnel port. {}", e.getMessage());
 		}
@@ -364,8 +369,8 @@ public class OFMTunnelManager extends OFModule implements IOFMTunnelManagerServi
 		}
 	}
 	
-	public void setup_tunnel_port(String ovsdb_server_remote_ip, String ovsdb_server_remote_port, String bridge_name, String port_name, String remote_ip) {
-		String ofport = TunnelOvs.add_tunnel_port(ovsdb_server_remote_ip, ovsdb_server_remote_port, bridge_name, port_name, remote_ip);
+	public void setup_tunnel_port(String ovsdb_server_remote_ip, String ovsdb_server_remote_port, String bridge_name, String port_name, String local_ip_tun, String remote_ip_tun) {
+		String ofport = TunnelOvs.add_tunnel_port(ovsdb_server_remote_ip, ovsdb_server_remote_port, bridge_name, port_name, local_ip_tun, remote_ip_tun);
 		
 		run_cmd_rest(ovsdb_server_remote_ip, "8000", "sudo ovs-ofctl add-flow "+TUNNELING_BRIDGE_NAME+" hard_timeout=0,idle_timeout=0,priority=1,in_port="+ofport+",actions=resubmit(,"+TunnelFlow.VXLAN_TUN_TO_LV+")");
 		

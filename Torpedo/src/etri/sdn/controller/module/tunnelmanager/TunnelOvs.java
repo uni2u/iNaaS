@@ -82,12 +82,12 @@ public class TunnelOvs {
 		return get_port_ofport(ovsdb_server_remote_ip, ovsdb_server_remote_port, local_name);
 	}
 	
-	public static String add_tunnel_port(String ovsdb_server_remote_ip, String ovsdb_server_remote_port, String bridge_name, String port_name, String remote_ip) {
+	public static String add_tunnel_port(String ovsdb_server_remote_ip, String ovsdb_server_remote_port, String bridge_name, String port_name, String local_ip_tun, String remote_ip_tun) {
 		String[] command = {"--db=tcp:"+ovsdb_server_remote_ip+":"+ovsdb_server_remote_port,
 //				"--", "--may-exist", "add-port", bridge_name, port_name,
 				"add-port", bridge_name, port_name,
 				"--", "set", "Interface", port_name, "type="+OFMTunnelManager.TUNNEL_TYPE,
-				"options:in_key=flow options:local_ip="+ovsdb_server_remote_ip+" options:out_key=flow options:remote_ip="+remote_ip};
+				"options:in_key=flow options:local_ip="+local_ip_tun+" options:out_key=flow options:remote_ip="+remote_ip_tun};
 		
 		run_vsctl(command, "");
 		

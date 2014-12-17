@@ -38,12 +38,13 @@ public class RestTunnel extends Restlet {
 				ObjectMapper om = new ObjectMapper();
 				Map<String, Object> tInfo = om.readValue(request.getEntityAsText(), new TypeReference<Map<String, Object>>(){});
 
-				String node_ip = tInfo.get("node_ip").toString();
+				String node_ip_mgt = tInfo.get("node_ip_mgt").toString();
+				String node_ip_tun = tInfo.get("node_ip_tun").toString();
 				String node_name = tInfo.get("node_name").toString();
 				String node_type = tInfo.get("node_type").toString();
 				String iris_ip = tInfo.get("iris_ip").toString();
 				
-				parent.getModule().addTunnel(node_ip, node_name, node_type, iris_ip);
+				parent.getModule().addTunnel(node_ip_mgt, node_ip_tun, node_name, node_type, iris_ip);
 				
 			} catch (IOException e) {
 				Logger.error("Could not parse JSON {}", e.getMessage());
