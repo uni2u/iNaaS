@@ -77,7 +77,7 @@ public class OFMTunnelManager extends OFModule implements IOFMTunnelManagerServi
 	private static final String OVSDB_SERVER_REMOTE_PORT = "6640";
 	private static final String INTEGRATION_BRIDGE_NAME = "br-int";
 	private static final String TUNNELING_BRIDGE_NAME = "br-tun";
-	private static final String INT_PEER_PATCH_PORT = "patch-tun";
+//	private static final String INT_PEER_PATCH_PORT = "patch-tun";
 	private static final String TUN_PEER_PATCH_PORT = "patch-int";
 	private static final int DELETE_TIME_GAP = 3;
 	
@@ -189,7 +189,6 @@ public class OFMTunnelManager extends OFModule implements IOFMTunnelManagerServi
 	}
 	
 	private boolean processPacketInMessage(Connection conn, OFMessage msg, IRoutingDecision decision, MessageContext cntx){
-//System.out.println("PACKET_IN : " + conn.getSwitch().getId());
 		
 		if(intDpidByIp.containsValue(conn.getSwitch().getId())) {
 			OFPacketIn pi = (OFPacketIn) msg; 
@@ -197,9 +196,9 @@ public class OFMTunnelManager extends OFModule implements IOFMTunnelManagerServi
 			OFFactory fac = OFFactories.getFactory(pi.getVersion());
 			OFFlowMod.Builder fm = fac.buildFlowAdd();
 			
-			fm.setHardTimeout(0);
-			fm.setIdleTimeout(5);
-			fm.setPriority(1);
+			fm.setHardTimeout(0)
+			  .setIdleTimeout(5)
+			  .setPriority(1);
 			
 			Ethernet etherPacket = new Ethernet();
 			etherPacket.deserialize(pi.getData(), 0, pi.getData().length);
@@ -211,17 +210,21 @@ public class OFMTunnelManager extends OFModule implements IOFMTunnelManagerServi
 			}
 			
 			Match.Builder match = fac.buildMatch();
-			match.setExact(MatchField.IN_PORT, pi.getInPort());
+			if("local".equals(pi.getInPort().toString().toLowerCase())) {
+				match.setExact(MatchField.IN_PORT, OFPort.LOCAL);
+			} else {
+				match.setExact(MatchField.IN_PORT, pi.getInPort());
+			}
 			match.setExact(MatchField.ETH_TYPE, etherType);
 			
 			fm.setMatch(match.build());
-			
+
 			List<OFAction> actions = new ArrayList<OFAction>();
 			OFActionOutput.Builder action = fac.actions().buildOutput();
 			action.setPort(OFPort.NORMAL);
 			actions.add(action.build());
 			fm.setActions(actions);
-			
+
 			if ( pi.getBufferId() != OFBufferId.NO_BUFFER ) {
 				fm.setBufferId( pi.getBufferId() );
 			} else {
@@ -239,11 +242,23 @@ public class OFMTunnelManager extends OFModule implements IOFMTunnelManagerServi
 				
 				conn.write(po.build());
 			}
-			
+
 			conn.write(fm.build());
+
+//System.out.println("========================================================");
+//System.out.println("intDpidByIp : " + intDpidByIp);
+//System.out.println("conn.getSwitch() : " + conn.getSwitch());
+//System.out.println("conn.getSwitch().getId() : " + conn.getSwitch().getId());
+//System.out.println("pi.getInPort() : " + pi.getInPort());
+//System.out.println("pi.getBufferId() : " + pi.getBufferId());
+//System.out.println("etherType : " + etherType);
+//System.out.println("fm.build() : " + fm.build());
+//System.out.println("========================================================");
+			
+			return false;
+		} else {
+			return true;
 		}
-		
-		return false;
 	}
 	
 	@Override
@@ -251,9 +266,6 @@ public class OFMTunnelManager extends OFModule implements IOFMTunnelManagerServi
 		Date now = new Date(System.currentTimeMillis());
 		SimpleDateFormat simpledateformat = new SimpleDateFormat("yyyyMMddHHmm");
 		String current_time = simpledateformat.format(now);
-		
-//		String local_ip = node_ip;
-//		String remote_ip = "";
 		
 		try {
 			if(!nodesByIp.containsKey(node_ip_mgt)) {
@@ -271,11 +283,9 @@ public class OFMTunnelManager extends OFModule implements IOFMTunnelManagerServi
 				nodeInfo.available_local_vlans = init_vlans;
 				
 				nodesByIp.put(node_ip_mgt, nodeInfo);
+				intDpidByIp.put(node_ip_mgt, TunnelOvs.get_sw_dpid(node_ip_mgt, OVSDB_SERVER_REMOTE_PORT, INTEGRATION_BRIDGE_NAME));
 				
 				setup_bridge(node_ip_mgt, OVSDB_SERVER_REMOTE_PORT, iris_ip);
-				
-//System.out.println("intDpidByIp >>> " + local_ip + " : " + TunnelOvs.get_sw_dpid(local_ip, OVSDB_SERVER_REMOTE_PORT, INTEGRATION_BRIDGE_NAME));
-//				intDpidByIp.put(local_ip, TunnelOvs.get_sw_dpid(local_ip, OVSDB_SERVER_REMOTE_PORT, INTEGRATION_BRIDGE_NAME));
 				
 				// tunnel create ( new node <--> exist node )
 				if(!nodesByIp.isEmpty() && nodesByIp.size() > 1) {
@@ -312,33 +322,39 @@ public class OFMTunnelManager extends OFModule implements IOFMTunnelManagerServi
 	
 	public void setup_bridge(String ovsdb_server_remote_ip, String ovsdb_server_remote_port, String iris_ip) {
 		try {
-			TunnelOvs.delete_bridge(ovsdb_server_remote_ip, ovsdb_server_remote_port, INTEGRATION_BRIDGE_NAME);
-			Thread.sleep(500);
-			TunnelOvs.delete_bridge(ovsdb_server_remote_ip, ovsdb_server_remote_port, TUNNELING_BRIDGE_NAME);
-			Thread.sleep(500);
+//			TunnelOvs.delete_bridge(ovsdb_server_remote_ip, ovsdb_server_remote_port, INTEGRATION_BRIDGE_NAME);
+//			Thread.sleep(500);
+//			TunnelOvs.delete_bridge(ovsdb_server_remote_ip, ovsdb_server_remote_port, TUNNELING_BRIDGE_NAME);
+//			Thread.sleep(500);
+//			
+//			TunnelOvs.add_bridge(ovsdb_server_remote_ip, ovsdb_server_remote_port, INTEGRATION_BRIDGE_NAME);
+//			Thread.sleep(500);
+//			TunnelOvs.set_secure_mode(ovsdb_server_remote_ip, ovsdb_server_remote_port, INTEGRATION_BRIDGE_NAME);
+//			Thread.sleep(500);
+//			TunnelOvs.add_bridge(ovsdb_server_remote_ip, ovsdb_server_remote_port, TUNNELING_BRIDGE_NAME);
+//			Thread.sleep(500);
+//			intDpidByIp.put(ovsdb_server_remote_ip, TunnelOvs.get_sw_dpid(ovsdb_server_remote_ip, ovsdb_server_remote_port, INTEGRATION_BRIDGE_NAME));
+//			
+//			TunnelOvs.add_patch_port(ovsdb_server_remote_ip, ovsdb_server_remote_port, INTEGRATION_BRIDGE_NAME, INT_PEER_PATCH_PORT, TUN_PEER_PATCH_PORT);
+//			Thread.sleep(500);
+//			String patch_int_ofport = TunnelOvs.add_patch_port(ovsdb_server_remote_ip, ovsdb_server_remote_port, TUNNELING_BRIDGE_NAME, TUN_PEER_PATCH_PORT, INT_PEER_PATCH_PORT);
+//			Thread.sleep(500);
 			
-			TunnelOvs.add_bridge(ovsdb_server_remote_ip, ovsdb_server_remote_port, INTEGRATION_BRIDGE_NAME);
-			Thread.sleep(500);
-			TunnelOvs.set_secure_mode(ovsdb_server_remote_ip, ovsdb_server_remote_port, INTEGRATION_BRIDGE_NAME);
-			Thread.sleep(500);
-			TunnelOvs.add_bridge(ovsdb_server_remote_ip, ovsdb_server_remote_port, TUNNELING_BRIDGE_NAME);
-			Thread.sleep(500);
-			intDpidByIp.put(ovsdb_server_remote_ip, TunnelOvs.get_sw_dpid(ovsdb_server_remote_ip, ovsdb_server_remote_port, INTEGRATION_BRIDGE_NAME));
+			String patch_int_ofport = TunnelOvs.get_port_ofport(ovsdb_server_remote_ip, ovsdb_server_remote_port, TUN_PEER_PATCH_PORT);
 			
-			TunnelOvs.add_patch_port(ovsdb_server_remote_ip, ovsdb_server_remote_port, INTEGRATION_BRIDGE_NAME, INT_PEER_PATCH_PORT, TUN_PEER_PATCH_PORT);
+			TunnelOvs.disConnController(ovsdb_server_remote_ip, ovsdb_server_remote_port, INTEGRATION_BRIDGE_NAME);
 			Thread.sleep(500);
-			String patch_int_ofport = TunnelOvs.add_patch_port(ovsdb_server_remote_ip, ovsdb_server_remote_port, TUNNELING_BRIDGE_NAME, TUN_PEER_PATCH_PORT, INT_PEER_PATCH_PORT);
+			TunnelOvs.disConnController(ovsdb_server_remote_ip, ovsdb_server_remote_port, TUNNELING_BRIDGE_NAME);
 			Thread.sleep(500);
-			
 			TunnelOvs.connController(ovsdb_server_remote_ip, ovsdb_server_remote_port, iris_ip, INTEGRATION_BRIDGE_NAME);
 			Thread.sleep(500);
 			TunnelOvs.connController(ovsdb_server_remote_ip, ovsdb_server_remote_port, iris_ip, TUNNELING_BRIDGE_NAME);
 			Thread.sleep(500);
 			
-			run_cmd_rest(ovsdb_server_remote_ip, "8000", "sudo ovs-ofctl del-flows "+INTEGRATION_BRIDGE_NAME);
-			Thread.sleep(500);
-			run_cmd_rest(ovsdb_server_remote_ip, "8000", "sudo ovs-ofctl del-flows "+TUNNELING_BRIDGE_NAME);
-			Thread.sleep(500);
+//			run_cmd_rest(ovsdb_server_remote_ip, "8000", "sudo ovs-ofctl del-flows "+INTEGRATION_BRIDGE_NAME);
+//			Thread.sleep(500);
+//			run_cmd_rest(ovsdb_server_remote_ip, "8000", "sudo ovs-ofctl del-flows "+TUNNELING_BRIDGE_NAME);
+//			Thread.sleep(500);
 			
 	        run_cmd_rest(ovsdb_server_remote_ip, "8000", "sudo ovs-ofctl add-flow "+INTEGRATION_BRIDGE_NAME+" hard_timeout=0,idle_timeout=0,priority=100,dl_type=0x88cc,actions=CONTROLLER");
 	        Thread.sleep(500);
@@ -664,7 +680,7 @@ public class OFMTunnelManager extends OFModule implements IOFMTunnelManagerServi
 						int successCnt = 0;
 						
 						for(Entry<String, PortDefinition> localPortMap : nodesByIp.get(entry.getKey()).used_local_vPortsByGuid.entrySet()) {
-							String port_name = "";
+//							String port_name = "";
 							String tag = "";
 							if(nodesByIp.get(entry.getKey()).local_vNetidToVlanid != null) {
 								if(nodesByIp.get(entry.getKey()).local_vNetidToVlanid.containsKey(localPortMap.getValue().network_id)) {
@@ -672,13 +688,14 @@ public class OFMTunnelManager extends OFModule implements IOFMTunnelManagerServi
 								}
 							}
 							
-							if("compute:nova".equals(localPortMap.getValue().device_owner) || "network:dhcp".equals(localPortMap.getValue().device_owner)) {
-								port_name = "tap" + localPortMap.getValue().porId.substring(0,11);
-							} else if("network:router_interface".equals(localPortMap.getValue().device_owner)) {
-								port_name = "qr-" + localPortMap.getValue().porId.substring(0,11);
-							}
+//							if("compute:nova".equals(localPortMap.getValue().device_owner) || "network:dhcp".equals(localPortMap.getValue().device_owner)) {
+//								port_name = "tap" + localPortMap.getValue().porId.substring(0,11);
+//							} else if("network:router_interface".equals(localPortMap.getValue().device_owner)) {
+//								port_name = "qr-" + localPortMap.getValue().porId.substring(0,11);
+//							}
 							
-							if(!"".equals(port_name) && !"".equals(tag)) {
+//							if(!"".equals(port_name) && !"".equals(tag)) {
+							if(localPortMap.getValue().porId != null && !"".equals(localPortMap.getValue().porId) && !"".equals(tag)) {
 								try {
 									Process getTagListProcess = Runtime.getRuntime().exec("sudo ovs-vsctl --db=tcp:"+entry.getKey()+":"+OVSDB_SERVER_REMOTE_PORT +" list-ports "+INTEGRATION_BRIDGE_NAME);
 									getTagListProcess.waitFor();
@@ -688,8 +705,9 @@ public class OFMTunnelManager extends OFModule implements IOFMTunnelManagerServi
 									
 									while((line = br.readLine()) != null) {
 										String readPortNamae = line;
-										if(port_name.equals(readPortNamae)) {
-											String setTagCommand = "sudo ovs-vsctl --db=tcp:"+entry.getKey()+":"+OVSDB_SERVER_REMOTE_PORT +" set Port "+port_name+" tag="+tag;
+//										if(port_name.equals(readPortNamae)) {
+										if(localPortMap.getValue().porId.substring(0,11).equals(readPortNamae.substring(3))) {
+											String setTagCommand = "sudo ovs-vsctl --db=tcp:"+entry.getKey()+":"+OVSDB_SERVER_REMOTE_PORT +" set Port "+readPortNamae+" tag="+tag;
 
 											Process setTagProcess = Runtime.getRuntime().exec(setTagCommand);
 											setTagProcess.waitFor();
