@@ -6,6 +6,7 @@ import java.nio.ByteBuffer;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+
 import org.projectfloodlight.openflow.protocol.OFFlowRemoved;
 import org.projectfloodlight.openflow.protocol.OFMessage;
 import org.projectfloodlight.openflow.protocol.OFPacketIn;
@@ -19,11 +20,13 @@ import org.projectfloodlight.openflow.types.MacAddress;
 import org.projectfloodlight.openflow.types.TransportPort;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
 import etri.sdn.controller.IService;
 import etri.sdn.controller.MessageContext;
 import etri.sdn.controller.OFMFilter;
 import etri.sdn.controller.OFModel;
 import etri.sdn.controller.OFModule;
+import etri.sdn.controller.TorpedoProperties;
 import etri.sdn.controller.protocol.OFProtocol;
 import etri.sdn.controller.protocol.io.Connection;
 import etri.sdn.controller.protocol.packet.Ethernet;
@@ -35,6 +38,8 @@ import etri.sdn.controller.util.MACAddress;
 public class OFVxlanFlowMappingManager<K, V> extends OFModule  implements IService {
 	static final Logger logger = LoggerFactory.getLogger(OFVxlanFlowMappingManager.class);
 	OFProtocol protocol;
+	TorpedoProperties sysconf = TorpedoProperties.loadConfiguration();
+	Integer vxlanPortNumber = sysconf.getInt("vxlan-port-number");
 	
 //	private static ConcurrentHashMap<String, OverlayFlowMappingEntry<String,String>> O2V = new ConcurrentHashMap<String, OverlayFlowMappingEntry<String,String>>();
 //	private static ConcurrentHashMap<String, OverlayFlowMappingEntry<String,String>> V2O = new ConcurrentHashMap<String, OverlayFlowMappingEntry<String,String>>();
@@ -97,6 +102,7 @@ public class OFVxlanFlowMappingManager<K, V> extends OFModule  implements IServi
 //		System.out.println(pi.getData());
 //		Match match = OFFactories.getFactory(packetIn.getVersion()).buildMatch();
 		Match match = null;
+
 		switch ( msg.getType() ) {
 			case PACKET_IN:
 				OFPacketIn pi = (OFPacketIn) msg;
@@ -115,7 +121,7 @@ public class OFVxlanFlowMappingManager<K, V> extends OFModule  implements IServi
 				TransportPort udpdst = match.get(MatchField.UDP_DST);
 	
 				if (match != null && ether.getValue() == 0x0800 && proto != null && udpdst != null &&
-						proto.getIpProtocolNumber() == 0x11 && udpdst.getPort() == 8472) {
+						proto.getIpProtocolNumber() == 0x11 && udpdst.getPort() == vxlanPortNumber.intValue()) {
 					 
 						return this.processPacketInMessage(conn, context, (OFPacketIn) msg, outgoing, match);
 				}
@@ -147,7 +153,7 @@ public class OFVxlanFlowMappingManager<K, V> extends OFModule  implements IServi
 			outerSrcPort = match.get(MatchField.UDP_SRC);
 			outerDstPort = match.get(MatchField.UDP_DST);
 			
-			if (outerDstPort.getPort() == 8472) {
+			if (outerDstPort.getPort() == vxlanPortNumber.intValue()) {
 		
 				String o2VKey = outerSrcMac.toString().toUpperCase() + " " + outerDstMac.toString().toUpperCase() + " " + outerSrcIP.toString() + " " + outerDstIP.toString() + " " + outerSrcPort.toString();
 				OverlayFlowMappingEntry<String,String>  flowMapping = vxlanFlowMappingStorage.getO2VEnrty(o2VKey);

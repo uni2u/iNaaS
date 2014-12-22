@@ -90,7 +90,7 @@ public class VxlanFlowMappingStorage extends OFModel  {
 	
 		if (ret == null) {
 			Set<String> keySet = O2V.keySet();
-			System.out.println ("+++++ADDED KEY: " + o2VKey +", O2V Table Size is " + keySet.size() + "\n" + keySet);
+//			System.out.println ("+++++ADDED KEY: " + o2VKey +", O2V Table Size is " + keySet.size() + "\n" + keySet);
 			try {
 				
 				for (URL url : notificationList) {
@@ -302,7 +302,7 @@ public class VxlanFlowMappingStorage extends OFModel  {
 						public  void handle(Request request, Response response) {
 								
 							String req = request.getEntityAsText();
-							System.out.println("1111111111111111111111111111111111111111111111 " + req);
+							System.out.println("register_test1 " + req);
 														
 						}
 			}),
@@ -311,7 +311,7 @@ public class VxlanFlowMappingStorage extends OFModel  {
 						public  void handle(Request request, Response response) {
 								
 							String req = request.getEntityAsText();
-							System.out.println("2222222222222222222222222222222222222222222222" + req);
+							System.out.println("register_test2 " + req);
 														
 						}
 			}),
