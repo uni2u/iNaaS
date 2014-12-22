@@ -212,7 +212,7 @@ public class VxlanFlowMappingStorage extends OFModel  {
 				P2VResponse reply = new P2VResponse(pairs);
 				output =  mapper.defaultPrettyPrintingWriter().writeValueAsString(reply);
 			} else {
-				P2VDelResponse reply =  new P2VDelResponse(pairs);
+				P2VRemovedResponse reply =  new P2VRemovedResponse(pairs);
 				output =  mapper.defaultPrettyPrintingWriter().writeValueAsString(reply);
 //				System.out.println ("outerPacket : " + outerPacket);
 //				System.out.println ("orgPacket : " + orgPacket);
