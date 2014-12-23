@@ -699,9 +699,9 @@ public class OFMTunnelManager extends OFModule implements IOFMTunnelManagerServi
 							}
 							
 //							if("compute:nova".equals(localPortMap.getValue().device_owner) || "network:dhcp".equals(localPortMap.getValue().device_owner)) {
-//								port_name = "tap" + localPortMap.getValue().porId.substring(0,11);
+//								port_name = "tap" + localPortMap.getValue().portId.substring(0,11);
 //							} else if("network:router_interface".equals(localPortMap.getValue().device_owner)) {
-//								port_name = "qr-" + localPortMap.getValue().porId.substring(0,11);
+//								port_name = "qr-" + localPortMap.getValue().portId.substring(0,11);
 //							}
 							
 //							if(!"".equals(port_name) && !"".equals(tag)) {
@@ -801,5 +801,20 @@ public class OFMTunnelManager extends OFModule implements IOFMTunnelManagerServi
 	@Override
 	public Map<String, PortDefinition> getVmByGuid() {
 		return vmByGuid;
+	}
+	
+	@Override
+	public Map<String, PortDefinition> getVmByIp() {
+		Map<String, PortDefinition> vmByIp = new ConcurrentHashMap<String, PortDefinition>();
+		
+		for(Entry<String, PortDefinition> vmEntry : vmByGuid.entrySet()) {
+			if(vmEntry.getValue().fixed_ips.size() > 0) {
+				String vm_ip = vmEntry.getValue().fixed_ips.get(0).get("ip_address");
+				
+				vmByIp.put(vm_ip, vmEntry.getValue());
+			}
+		}
+		
+		return vmByIp;
 	}
 }

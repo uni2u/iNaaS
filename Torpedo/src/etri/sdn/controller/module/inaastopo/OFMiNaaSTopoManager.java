@@ -152,30 +152,27 @@ public class OFMiNaaSTopoManager extends OFModule implements IOFMiNaaSTopoManage
 		int hostCnt = 0;
 		for(IDevice deviceEntry : device.getAllDevices()) {
 			if(deviceEntry.getIPv4Addresses().length > 0) {
-//				if(!tunnelManager.getVmByMacAddress().containsKey(deviceEntry.getMACAddressString())) {
-				for(Entry<String, PortDefinition> vmEntry : tunnelManager.getVmByGuid().entrySet()) {
-					String host_ip = IPv4.fromIPv4Address(deviceEntry.getIPv4Addresses()[0]);
-					String host_name = tunnelManager.getNodeInfo().containsKey(host_ip) ? tunnelManager.getNodeInfo().get(host_ip).node_name : "";
-					
-					if(!host_ip.equals(vmEntry.getValue().fixed_ips.get(0).get("ip_address"))) {
-						if(hostCnt == 0) {
-							hostlist.append("{");
-						} else {
-							hostlist.append(",{");
-						}
-						hostlist.append("\"host_ip\":\""+host_ip+"\",");
-						hostlist.append("\"host_name\":\""+host_name+"\",");
-						if(deviceEntry.getAttachmentPoints().length > 0) {
-							hostlist.append("\"connected_sw\":\""+HexString.toHexString(deviceEntry.getAttachmentPoints()[0].getSwitchDPID())+"\",");
-							hostlist.append("\"connected_port\":"+deviceEntry.getAttachmentPoints()[0].getPort().getPortNumber());
-						} else {
-							hostlist.append("\"connected_sw\":\"\",");
-							hostlist.append("\"connected_port\":\"\"");
-						}
-						hostlist.append("}");
-						
-						hostCnt++;
+				String host_ip = IPv4.fromIPv4Address(deviceEntry.getIPv4Addresses()[0]);
+				String host_name = tunnelManager.getNodeInfo().containsKey(host_ip) ? tunnelManager.getNodeInfo().get(host_ip).node_name : "";
+				
+				if(!tunnelManager.getVmByIp().containsKey(host_ip)) {
+					if(hostCnt == 0) {
+						hostlist.append("{");
+					} else {
+						hostlist.append(",{");
 					}
+					hostlist.append("\"host_ip\":\""+host_ip+"\",");
+					hostlist.append("\"host_name\":\""+host_name+"\",");
+					if(deviceEntry.getAttachmentPoints().length > 0) {
+						hostlist.append("\"connected_sw\":\""+HexString.toHexString(deviceEntry.getAttachmentPoints()[0].getSwitchDPID())+"\",");
+						hostlist.append("\"connected_port\":"+deviceEntry.getAttachmentPoints()[0].getPort().getPortNumber());
+					} else {
+						hostlist.append("\"connected_sw\":\"\",");
+						hostlist.append("\"connected_port\":\"\"");
+					}
+					hostlist.append("}");
+					
+					hostCnt++;
 				}
 			}
 		}

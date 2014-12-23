@@ -15,4 +15,6 @@ public interface IOFMTunnelManagerService extends IService {
 	public Map<String, NodeDefinition> getNodeInfo();
 	
 	public Map<String, PortDefinition> getVmByGuid();
+	
+	public Map<String, PortDefinition> getVmByIp();
 }
