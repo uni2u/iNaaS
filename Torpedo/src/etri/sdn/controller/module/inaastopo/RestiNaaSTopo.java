@@ -23,6 +23,7 @@ public class RestiNaaSTopo extends Restlet {
 	
 	@Override
 	public void handle(Request request, Response response) {
+System.out.println("><><><><><>");
 
 		Method m = request.getMethod();
 		

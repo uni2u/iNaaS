@@ -86,6 +86,7 @@ public class OFMTunnelManager extends OFModule implements IOFMTunnelManagerServi
 	
 	protected static Map<String, NodeDefinition> nodesByIp;
 	protected static Map<String, Long> intDpidByIp;
+	protected static Map<Long, String> nodeIpByDpid;
 	protected static Map<String, NetworkDefinition> vNetsByGuid;	// List of all created virtual networks
 	protected static Map<String, PortDefinition> vPortsByGuid;	// List of all created virtual networks
 	
@@ -104,6 +105,7 @@ public class OFMTunnelManager extends OFModule implements IOFMTunnelManagerServi
 	protected void initialize() {
 		nodesByIp = new ConcurrentHashMap<String, NodeDefinition>();
 		intDpidByIp = new ConcurrentHashMap<String, Long>();
+		nodeIpByDpid = new ConcurrentHashMap<Long, String>();
 		vNetsByGuid = new ConcurrentHashMap<String, NetworkDefinition>();
 		vPortsByGuid = new ConcurrentHashMap<String, PortDefinition>();
 		
@@ -284,6 +286,8 @@ public class OFMTunnelManager extends OFModule implements IOFMTunnelManagerServi
 				
 				nodesByIp.put(node_ip_mgt, nodeInfo);
 				intDpidByIp.put(node_ip_mgt, TunnelOvs.get_sw_dpid(node_ip_mgt, OVSDB_SERVER_REMOTE_PORT, INTEGRATION_BRIDGE_NAME));
+				nodeIpByDpid.put(TunnelOvs.get_sw_dpid(node_ip_mgt, OVSDB_SERVER_REMOTE_PORT, INTEGRATION_BRIDGE_NAME), node_ip_mgt);
+				nodeIpByDpid.put(TunnelOvs.get_sw_dpid(node_ip_mgt, OVSDB_SERVER_REMOTE_PORT, TUNNELING_BRIDGE_NAME), node_ip_mgt);
 				
 				setup_bridge(node_ip_mgt, OVSDB_SERVER_REMOTE_PORT, iris_ip);
 				
@@ -749,6 +753,12 @@ public class OFMTunnelManager extends OFModule implements IOFMTunnelManagerServi
 						nodesByIp.remove(entry.getKey());
 						intDpidByIp.remove(entry.getKey());
 						
+						for(Entry<Long, String> swEntry : nodeIpByDpid.entrySet()) {
+							if(entry.getKey().equals(swEntry.getValue())) {
+								nodeIpByDpid.remove(swEntry.getKey());
+							}
+						}
+						
 						for(Entry<String, NodeDefinition> deleteEntry : nodesByIp.entrySet()) {
 							String in_port = TunnelOvs.get_port_ofport(deleteEntry.getKey(), OVSDB_SERVER_REMOTE_PORT, delTunName);
 							
@@ -770,5 +780,10 @@ public class OFMTunnelManager extends OFModule implements IOFMTunnelManagerServi
 		} catch(Exception e) {
 			logger.error("Unable to delete tunnel port. {}", e.getMessage());
 		}
+	}
+	
+	@Override
+	public Map<Long, String> getBridgeDpid() {
+		return nodeIpByDpid;
 	}
 }

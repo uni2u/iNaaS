@@ -6,6 +6,7 @@ import java.util.List;
 
 import org.projectfloodlight.openflow.protocol.OFMessage;
 import org.projectfloodlight.openflow.protocol.OFType;
+import org.projectfloodlight.openflow.util.HexString;
 
 import etri.sdn.controller.IService;
 import etri.sdn.controller.MessageContext;
@@ -14,6 +15,7 @@ import etri.sdn.controller.OFModel;
 import etri.sdn.controller.OFModule;
 import etri.sdn.controller.module.devicemanager.IDeviceService;
 import etri.sdn.controller.module.routing.IRoutingDecision;
+import etri.sdn.controller.module.tunnelmanager.IOFMTunnelManagerService;
 import etri.sdn.controller.protocol.io.Connection;
 import etri.sdn.controller.protocol.io.IOFSwitch;
 
@@ -22,6 +24,7 @@ public class OFMiNaaSTopoManager extends OFModule implements IOFMiNaaSTopoManage
 	private iNaaSTopoConfiguration topoConf = null;
 	
 	protected IDeviceService device;
+	protected IOFMTunnelManagerService tunnelManager;
 	
 	@Override
 	protected Collection<Class<? extends IService>> services() {
@@ -37,6 +40,7 @@ public class OFMiNaaSTopoManager extends OFModule implements IOFMiNaaSTopoManage
 	@Override
 	protected void initialize() {
 		device = (IDeviceService) getModule(IDeviceService.class);
+		tunnelManager = (IOFMTunnelManagerService) getModule(IOFMTunnelManagerService.class);
 		
 		registerFilter(
 				OFType.PACKET_IN, 
@@ -89,34 +93,36 @@ public class OFMiNaaSTopoManager extends OFModule implements IOFMiNaaSTopoManage
 	
 	@Override
 	public String getINaaSTopoAll() {
+System.out.println(">>>>> ");
+		String returnJsonStr = "";
+		returnJsonStr = "{" + getSwitchListJsonStr() + "}";
 		
+		return returnJsonStr;
+	}
+	
+	public String getSwitchListJsonStr() {
 		String switchlist = "";
 		
+		switchlist += "\"switchlist\":[";
 		if(getController().getSwitches().size() > 0) {
-			switchlist += "\"switchlist\":[";
 			int switchCnt = 0;
 			for (IOFSwitch sw : getController().getSwitches()) {
-				System.out.println(sw.getId());
-				if(switchCnt == 0) {
-					switchlist += "{\"dpid\":\"" + sw.getId() + "\"}";
-				} else {
-					switchlist += ",{\"dpid\":\"" + sw.getId() + "\"}";
+System.out.println(">>>>> sw.getId()" + sw.getId());
+				if(!tunnelManager.getBridgeDpid().containsKey(sw.getId())) {
+					if(switchCnt == 0) {
+						switchlist += "{\"dpid\":\"" + HexString.toHexString(sw.getId()) + "\"}";
+					} else {
+						switchlist += ",{\"dpid\":\"" + HexString.toHexString(sw.getId()) + "\"}";
+					}
+					switchCnt++;
 				}
-				switchCnt++;
 			}
-			switchlist += "]";
 		}
+		switchlist += "]";
 		
 System.out.println(">>>>> switchlist : " + switchlist);
 		
-		
-		
-//		device.getAllDevices();
-//		
-//		device.
-		
-		
-		return "";
+		return switchlist;
 	}
 	
 	
