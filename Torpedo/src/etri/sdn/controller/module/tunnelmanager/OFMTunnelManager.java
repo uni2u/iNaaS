@@ -89,6 +89,7 @@ public class OFMTunnelManager extends OFModule implements IOFMTunnelManagerServi
 	protected static Map<Long, String> nodeIpByDpid;
 	protected static Map<String, NetworkDefinition> vNetsByGuid;	// List of all created virtual networks
 	protected static Map<String, PortDefinition> vPortsByGuid;	// List of all created virtual networks
+	protected static Map<String, PortDefinition> vmByGuid;
 	
 	@Override
 	protected Collection<Class<? extends IService>> services() {
@@ -108,6 +109,7 @@ public class OFMTunnelManager extends OFModule implements IOFMTunnelManagerServi
 		nodeIpByDpid = new ConcurrentHashMap<Long, String>();
 		vNetsByGuid = new ConcurrentHashMap<String, NetworkDefinition>();
 		vPortsByGuid = new ConcurrentHashMap<String, PortDefinition>();
+		vmByGuid = new ConcurrentHashMap<String, PortDefinition>();
 		
 		registerFilter(
 				OFType.PACKET_IN, 
@@ -571,6 +573,8 @@ public class OFMTunnelManager extends OFModule implements IOFMTunnelManagerServi
 					}
 					nodesByIp.get(compute_node_ip).used_local_vPortsByGuid.put(port.porId, port);
 					
+					vmByGuid.put(port.porId, port);
+					
 					// change sync true
 					nodesByIp.get(compute_node_ip).flow_sync = true;
 					nodesByIp.get(compute_node_ip).tag_sync = true;
@@ -619,6 +623,8 @@ public class OFMTunnelManager extends OFModule implements IOFMTunnelManagerServi
 
 				if(nodesByIp.get(compute_node_ip).used_local_vPortsByGuid != null && nodesByIp.get(compute_node_ip).used_local_vPortsByGuid.containsKey(portId)) {
 					nodesByIp.get(compute_node_ip).used_local_vPortsByGuid.remove(portId);
+					
+					vmByGuid.remove(portId);
 				}
 				
 				if(nodesByIp.get(compute_node_ip).used_local_vPortsByGuid == null || nodesByIp.get(compute_node_ip).used_local_vPortsByGuid.isEmpty()) {
@@ -785,5 +791,15 @@ public class OFMTunnelManager extends OFModule implements IOFMTunnelManagerServi
 	@Override
 	public Map<Long, String> getBridgeDpid() {
 		return nodeIpByDpid;
+	}
+	
+	@Override
+	public Map<String, NodeDefinition> getNodeInfo() {
+		return nodesByIp;
+	}
+	
+	@Override
+	public Map<String, PortDefinition> getVmByGuid() {
+		return vmByGuid;
 	}
 }

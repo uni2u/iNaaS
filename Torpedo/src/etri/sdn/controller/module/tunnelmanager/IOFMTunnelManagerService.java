@@ -3,6 +3,8 @@ package etri.sdn.controller.module.tunnelmanager;
 import java.util.Map;
 
 import etri.sdn.controller.IService;
+import etri.sdn.controller.module.ml2.RestPort.PortDefinition;
+import etri.sdn.controller.module.tunnelmanager.OFMTunnelManager.NodeDefinition;
 
 public interface IOFMTunnelManagerService extends IService {
 
@@ -10,4 +12,7 @@ public interface IOFMTunnelManagerService extends IService {
 	
 	public Map<Long, String> getBridgeDpid();
 	
+	public Map<String, NodeDefinition> getNodeInfo();
+	
+	public Map<String, PortDefinition> getVmByGuid();
 }
