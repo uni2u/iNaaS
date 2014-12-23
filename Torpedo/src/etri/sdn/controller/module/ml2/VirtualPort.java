@@ -17,15 +17,14 @@ public class VirtualPort {
 	protected String device_owner;							// port device_owner
 	protected Map<String, String> binding_profile;			// port binding_profile
 	protected List<Map<String, String>> fixed_ips;			// port fixed_ips
-	protected String porId;									// port id
+	protected String portId;									// port id
 	protected List<Map<String, Object>> security_groups;	// port security_groups
 	protected String device_id;								// port device_id
-	protected String porName;								// port name
+	protected String portName;								// port name
 	protected String admin_state_up;						// port admin_state_up
 	protected String network_id;							// port tenant_id
 	protected String tenant_id;								// port binding_vif_details
 	protected Map<String, String> binding_vif_details;		// port binding_vif_details
-	protected String binding_vif_detail;
 	protected String binding_vnic_type;						// port binding_vnic_type
 	protected String binding_vif_type;						// port binding_vif_type
 	protected String mac_address;							// port mac_address
@@ -41,15 +40,14 @@ public class VirtualPort {
 		this.device_owner = port.device_owner;
 		this.binding_profile = port.binding_profile;
 		this.fixed_ips = port.fixed_ips;
-		this.porId = port.porId;
+		this.portId = port.portId;
 		this.security_groups = port.security_groups;
 		this.device_id = port.device_id;
-		this.porName = port.porName;
+		this.portName = port.portName;
 		this.admin_state_up = port.admin_state_up;
 		this.network_id=port.network_id;
 		this.tenant_id = port.tenant_id;
 		this.binding_vif_details = port.binding_vif_details;
-		this.binding_vif_detail = port.binding_vif_detail;
 		this.binding_vnic_type = port.binding_vnic_type;
 		this.binding_vif_type = port.binding_vif_type;
 		this.mac_address = port.mac_address;
@@ -122,10 +120,10 @@ public class VirtualPort {
 
 	/**
 	* Sets port porName
-	* @param porName : port porName
+	* @param portName : port porName
 	*/
-	public void setPorName(String porName) {
-		this.porName = porName;
+	public void setPorName(String portName) {
+		this.portName = portName;
 		return;
 	}
 
@@ -137,7 +135,7 @@ public class VirtualPort {
 		this.admin_state_up = admin_state_up;
 		return;
 	}
-
+	
 	/**
 	* Sets port binding_vif_details
 	* @param binding_vif_details : port binding_vif_details
@@ -147,15 +145,6 @@ public class VirtualPort {
 		return;
 	}
 	
-	/**
-	* Sets port binding_vif_detail
-	* @param binding_vif_detail : port binding_vif_detail
-	*/
-	public void setBindingVifDetails(String binding_vif_detail) {
-		this.binding_vif_detail = binding_vif_detail;
-		return;
-	}
-
 	/**
 	* Sets port binding_vnic_type
 	* @param binding_vnic_type : port binding_vnic_type
@@ -182,5 +171,14 @@ public class VirtualPort {
 		this.mac_address = mac_address;
 		return;
 	}
+	
+	/**
+	* Sets port binding_vif_detail
+	* @param binding_vif_detail : port binding_vif_detail
+	*/
+//	public void setBindingVifDetails(String binding_vif_detail) {
+//		this.binding_vif_detail = binding_vif_detail;
+//		return;
+//	}
 
 }

@@ -12,30 +12,30 @@ import org.codehaus.jackson.map.SerializerProvider;
 public class VirtualPortSerializer extends JsonSerializer<VirtualPort> {
 
 	@Override
-	public void serialize(VirtualPort vPor, JsonGenerator jGen, SerializerProvider serializer) throws IOException, JsonProcessingException {
+	public void serialize(VirtualPort vPort, JsonGenerator jGen, SerializerProvider serializer) throws IOException, JsonProcessingException {
 		
 		jGen.writeStartObject();
-		jGen.writeStringField("binding:host_id", vPor.binding_host_id);
+		jGen.writeStringField("binding:host_id", vPort.binding_host_id);
 		jGen.writeArrayFieldStart("allowed_address_pairs");
-			for (String allowed_address_pair : vPor.allowed_address_pairs) {
+			for (String allowed_address_pair : vPort.allowed_address_pairs) {
 				jGen.writeString(allowed_address_pair);
 			}
 		jGen.writeEndArray();
 		jGen.writeArrayFieldStart("extra_dhcp_opts");
-			for (String extra_dhcp_opt : vPor.extra_dhcp_opts) {
+			for (String extra_dhcp_opt : vPort.extra_dhcp_opts) {
 				jGen.writeString(extra_dhcp_opt);
 			}
 		jGen.writeEndArray();
-		jGen.writeStringField("device_owner", vPor.device_owner);
+		jGen.writeStringField("device_owner", vPort.device_owner);
 		jGen.writeObjectFieldStart("binding_profile");
-			if(vPor.binding_profile != null) {
-				for (Entry<String, String> entry : vPor.binding_profile.entrySet()) {
+			if(vPort.binding_profile != null) {
+				for (Entry<String, String> entry : vPort.binding_profile.entrySet()) {
 					jGen.writeStringField(entry.getKey().toString().toLowerCase(), entry.getValue().toString());
 				}
 			}
 		jGen.writeEndObject();
 		jGen.writeArrayFieldStart("fixed_ips");
-			for (Map<String, String> fiMap : vPor.fixed_ips) {
+			for (Map<String, String> fiMap : vPort.fixed_ips) {
 				jGen.writeStartObject();
 				for (Entry<String, String> entry : fiMap.entrySet()) {
 					jGen.writeStringField(entry.getKey().toString().toLowerCase(), entry.getValue().toString());
@@ -43,9 +43,9 @@ public class VirtualPortSerializer extends JsonSerializer<VirtualPort> {
 				jGen.writeEndObject();
 			}
 		jGen.writeEndArray();
-		jGen.writeStringField("id", vPor.porId);
+		jGen.writeStringField("id", vPort.portId);
 		jGen.writeArrayFieldStart("security_groups");
-			for (Map<String, Object> sgMap : vPor.security_groups) {
+			for (Map<String, Object> sgMap : vPort.security_groups) {
 				for (Entry<String, Object> entry : sgMap.entrySet()) {
 					if("id".equals(entry.getKey().toString().toLowerCase())) {
 						jGen.writeString(entry.getValue().toString());
@@ -53,26 +53,21 @@ public class VirtualPortSerializer extends JsonSerializer<VirtualPort> {
 				}
 			}
 		jGen.writeEndArray();
-		jGen.writeStringField("device_id", vPor.device_id);
-		jGen.writeStringField("name", vPor.porName);
-		jGen.writeStringField("admin_state_up", vPor.admin_state_up);
-		jGen.writeStringField("network_id", vPor.network_id);
-		jGen.writeStringField("tenant_id", vPor.tenant_id);
-		if(vPor.binding_vif_detail != null) {
-			jGen.writeStringField("binding_vif_details", vPor.binding_vif_detail);
-		} else {
-			jGen.writeObjectFieldStart("binding_vif_details");
-			if(vPor.binding_vif_details != null) {
-				for (Entry<String, String> entry : vPor.binding_vif_details.entrySet()) {
+		jGen.writeStringField("device_id", vPort.device_id);
+		jGen.writeStringField("name", vPort.portName);
+		jGen.writeStringField("admin_state_up", vPort.admin_state_up);
+		jGen.writeStringField("network_id", vPort.network_id);
+		jGen.writeStringField("tenant_id", vPort.tenant_id);
+		jGen.writeObjectFieldStart("binding:vif_details");
+			if(vPort.binding_vif_details != null) {
+				for (Entry<String, String> entry : vPort.binding_vif_details.entrySet()) {
 					jGen.writeStringField(entry.getKey().toString().toLowerCase(), entry.getValue().toString());
 				}
 			}
 		jGen.writeEndObject();
-		}
-		jGen.writeStringField("binding_vnic_type", vPor.binding_vnic_type);
-		jGen.writeStringField("binding_vif_type", vPor.binding_vif_type);
-		jGen.writeStringField("mac_address", vPor.mac_address);
+		jGen.writeStringField("binding:vnic_type", vPort.binding_vnic_type);
+		jGen.writeStringField("binding:vif_type", vPort.binding_vif_type);
+		jGen.writeStringField("mac_address", vPort.mac_address);
 		jGen.writeEndObject();
-		
 	}
 }

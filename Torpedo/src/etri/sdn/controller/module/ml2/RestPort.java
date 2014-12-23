@@ -17,8 +17,8 @@ import org.restlet.data.Status;
 public class RestPort extends Restlet {
 
 	static String neutronPortAll = "/wm/ml2/ports";
-	static String neutronPort = "/wm/ml2/ports/{porUUID}";
-	static String neutronPortIRIS = "/wm/ml2/ports/{porKey}/{porValue}";
+	static String neutronPort = "/wm/ml2/ports/{portUUID}";
+	static String neutronPortIRIS = "/wm/ml2/ports/{portKey}/{portValue}";
 
 	private NetworkConfiguration parent = null;
 
@@ -37,15 +37,14 @@ public class RestPort extends Restlet {
 		public String device_owner = null;
 		public Map<String, String> binding_profile = null;
 		public List<Map<String, String>> fixed_ips = null;
-		public String porId = null;
+		public String portId = null;
 		public List<Map<String, Object>> security_groups = null;
 		public String device_id = null;
-		public String porName = null;
+		public String portName = null;
 		public String admin_state_up = null;
 		public String network_id = null;
 		public String tenant_id = null;
 		public Map<String, String> binding_vif_details = null;
-		public String binding_vif_detail = null;
 		public String binding_vnic_type = null;
 		public String binding_vif_type = null;
 		public String mac_address = null;
@@ -83,7 +82,7 @@ public class RestPort extends Restlet {
 			port.fixed_ips = omfi.readValue(omfi.writeValueAsString(pInfo.get("fixed_ips")), new TypeReference<List<Map<String, String>>>(){});
 		}
 		if(pInfo.get("id") != null) {
-			port.porId = pInfo.get("id").toString();
+			port.portId = pInfo.get("id").toString();
 		}
 		if(pInfo.get("security_groups") != null) {
 			ObjectMapper omedo = new ObjectMapper();
@@ -93,7 +92,7 @@ public class RestPort extends Restlet {
 			port.device_id = pInfo.get("device_id").toString();
 		}
 		if(pInfo.get("name") != null) {
-			port.porName = pInfo.get("name").toString();
+			port.portName = pInfo.get("name").toString();
 		}
 		if(pInfo.get("admin_state_up") != null) {
 			port.admin_state_up = pInfo.get("admin_state_up").toString();
@@ -104,14 +103,12 @@ public class RestPort extends Restlet {
 		if(pInfo.get("tenant_id") != null) {
 			port.tenant_id = pInfo.get("tenant_id").toString();
 		}
+		if(pInfo.get("mac_address") != null) {
+			port.mac_address = pInfo.get("mac_address").toString();
+		}
 		if(pInfo.get("binding:vif_details") != null) {
-			//binding:vif_details = false =====> Neutron update
-			if (pInfo.get("binding:vif_details").toString() == "false") {			
-				port.binding_vif_detail = pInfo.get("binding:vif_details").toString();
-			} else {			
-				ObjectMapper ombp = new ObjectMapper();
-				port.binding_vif_details = ombp.readValue(ombp.writeValueAsString(pInfo.get("binding:vif_details")), new TypeReference<Map<String, String>>(){});
-			}
+			ObjectMapper ombp = new ObjectMapper();
+			port.binding_vif_details = ombp.readValue(ombp.writeValueAsString(pInfo.get("binding:vif_details")), new TypeReference<Map<String, String>>(){});
 		}
 		if(pInfo.get("binding:vnic_type") != null) {
 			port.binding_vnic_type = pInfo.get("binding:vnic_type").toString();
@@ -119,16 +116,13 @@ public class RestPort extends Restlet {
 		if(pInfo.get("binding:vif_type") != null) {
 			port.binding_vif_type = pInfo.get("binding:vif_type").toString();
 		}
-		if(pInfo.get("mac_address") != null) {
-			port.mac_address = pInfo.get("mac_address").toString();
-		}
 	}
 
 	@Override
 	public void handle(Request request, Response response) {
 
 		Method m = request.getMethod();
-		String porUUID = request.getAttributes().get("porUUID") == null ? "" : (String) request.getAttributes().get("porUUID");
+		String portUUID = request.getAttributes().get("portUUID") == null ? "" : (String) request.getAttributes().get("portUUID");
 
 		if (m == Method.POST || m == Method.PUT) {
 			PortDefinition port = new PortDefinition();
@@ -141,9 +135,9 @@ public class RestPort extends Restlet {
 
 			// We try to get the ID from the URI only if it's not
 			// in the POST data
-			if (port.porId == null) {
-				if(!"".equals(porUUID)) {
-					port.porId = porUUID;
+			if (port.portId == null) {
+				if(!"".equals(portUUID)) {
+					port.portId = portUUID;
 				}
 			}
 
@@ -152,15 +146,15 @@ public class RestPort extends Restlet {
 
 		} else if (m == Method.GET) {
 			
-			String porKey = request.getAttributes().get("porKey") == null ? "" : (String) request.getAttributes().get("porKey");
-			String porValue = request.getAttributes().get("porValue") == null ? "" : (String) request.getAttributes().get("porValue");
+			String portKey = request.getAttributes().get("portKey") == null ? "" : (String) request.getAttributes().get("portKey");
+			String portValue = request.getAttributes().get("portValue") == null ? "" : (String) request.getAttributes().get("portValue");
 			
-			response.setEntity(parent.getModule().listPorts(porUUID, porKey, porValue), MediaType.APPLICATION_JSON);
+			response.setEntity(parent.getModule().listPorts(portUUID, portKey, portValue), MediaType.APPLICATION_JSON);
 			response.setStatus(Status.SUCCESS_OK);
 			
 		} else if (m == Method.DELETE) {
 			
-			parent.getModule().deletePort(porUUID);
+			parent.getModule().deletePort(portUUID);
 			response.setStatus(Status.SUCCESS_OK);
 			
 		}

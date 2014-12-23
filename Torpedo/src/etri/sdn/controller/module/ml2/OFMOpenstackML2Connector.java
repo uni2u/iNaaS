@@ -14,21 +14,11 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import org.codehaus.jackson.map.ObjectMapper;
 import org.codehaus.jackson.type.TypeReference;
-import org.projectfloodlight.openflow.protocol.OFFactories;
-import org.projectfloodlight.openflow.protocol.OFFactory;
-import org.projectfloodlight.openflow.protocol.OFFlowAdd;
-import org.projectfloodlight.openflow.protocol.OFFlowMod;
 import org.projectfloodlight.openflow.protocol.OFMessage;
 import org.projectfloodlight.openflow.protocol.OFPacketIn;
 import org.projectfloodlight.openflow.protocol.OFType;
-import org.projectfloodlight.openflow.protocol.OFVersion;
-import org.projectfloodlight.openflow.protocol.action.OFAction;
-import org.projectfloodlight.openflow.protocol.match.Match;
 import org.projectfloodlight.openflow.protocol.match.MatchField;
-import org.projectfloodlight.openflow.types.OFBufferId;
 import org.projectfloodlight.openflow.types.OFPort;
-import org.projectfloodlight.openflow.types.TableId;
-import org.projectfloodlight.openflow.types.U64;
 import org.projectfloodlight.openflow.util.HexString;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -41,7 +31,6 @@ import etri.sdn.controller.OFModel;
 import etri.sdn.controller.OFModule;
 import etri.sdn.controller.module.devicemanager.IDevice;
 import etri.sdn.controller.module.devicemanager.IDeviceListener;
-import etri.sdn.controller.module.forwarding.ForwardingBase;
 import etri.sdn.controller.module.ml2.RestNetwork.NetworkDefinition;
 import etri.sdn.controller.module.ml2.RestPort.PortDefinition;
 import etri.sdn.controller.module.ml2.RestSubnet.SubnetDefinition;
@@ -52,12 +41,9 @@ import etri.sdn.controller.protocol.OFProtocol;
 import etri.sdn.controller.protocol.io.Connection;
 import etri.sdn.controller.protocol.io.IOFSwitch;
 import etri.sdn.controller.protocol.packet.DHCP;
-import etri.sdn.controller.protocol.packet.DHCP.DHCPOptionCode;
-import etri.sdn.controller.protocol.packet.DHCPOption;
 import etri.sdn.controller.protocol.packet.Ethernet;
 import etri.sdn.controller.protocol.packet.IPacket;
 import etri.sdn.controller.protocol.packet.IPv4;
-import etri.sdn.controller.util.AppCookie;
 import etri.sdn.controller.util.MACAddress;
 
 
@@ -244,29 +230,16 @@ public class OFMOpenstackML2Connector extends OFModule implements IOpenstackML2C
 		// We make exceptions for ARP and DHCP.
 		OFPort inPort = getInputPort(pi);
 		
-		IDevice srcDevice = (IDevice) cntx.get(MessageContext.SRC_DEVICE);
-		IDevice dstDevice = (IDevice) cntx.get(MessageContext.DST_DEVICE);
-		
-		
-//System.out.println("#################### srcDevice = "+srcDevice);
-//System.out.println("#################### dstDevice = "+dstDevice);
-				
-//		if (eth.isBroadcast() || eth.isMulticast() || isDefaultGateway(eth) == true || isDhcpPacket(eth) == true) {
+//		IDevice srcDevice = (IDevice) cntx.get(MessageContext.SRC_DEVICE);
+//		IDevice dstDevice = (IDevice) cntx.get(MessageContext.DST_DEVICE);
+
 		if (eth.isBroadcast() == true || eth.isMulticast() == true) {
-//			isDefaultGateway(eth);
-//			isDhcpPacket(eth);
 			
 			boolean allowDhcp = true;
 			boolean allowDefauleGW = true;
 			
 			allowDhcp = isDhcpPacket(eth);
 			allowDefauleGW = isDefaultGateway(eth);
-			
-			
-			OFFactory fac = OFFactories.getFactory(sw.getVersion());
-			OFPacketIn.Builder ofPin = fac.buildPacketIn();
-			OFFlowMod.Builder fm = null;
-			Match.Builder match = fac.buildMatch();
 		
 			if (allowDhcp == true) {
 				logger.debug("isDhcpPacket is true = {}", pi);				
@@ -639,14 +612,14 @@ public class OFMOpenstackML2Connector extends OFModule implements IOpenstackML2C
 	}
 
 	@Override
-	public String listPorts(String porId, String porKey, String porValue) {
+	public String listPorts(String portId, String portKey, String portValue) {
 		String listStr = "";
 		
 		try {
-			if(!"".equals(porId)) {
+			if(!"".equals(portId)) {
 
 				ObjectMapper omp = new ObjectMapper();
-				listStr = "{\"port\":" + omp.writeValueAsString(vPorsByGuid.get(porId)) + "}";
+				listStr = "{\"port\":" + omp.writeValueAsString(vPorsByGuid.get(portId)) + "}";
 
 			} else {
 				int cnt = 0;
@@ -654,14 +627,14 @@ public class OFMOpenstackML2Connector extends OFModule implements IOpenstackML2C
 					ObjectMapper omm = new ObjectMapper();
 					String jsonStr = omm.writeValueAsString(entry.getValue());
 					
-					if(!"".equals(porKey)) {
+					if(!"".equals(portKey)) {
 						Map<String, Object> vInfo = omm.readValue(jsonStr, new TypeReference<Map<String, Object>>(){});
 						
 						for(Entry<String, Object> vEntry : vInfo.entrySet()) {
 							String vEntryKey = vEntry.getKey() == null ? "null" : vEntry.getKey().toString();
 							String vEntryValue = vEntry.getValue() == null ? "null" : vEntry.getValue().toString();
 							
-							if(porKey.equals(vEntryKey) && porValue.equals(vEntryValue)) {
+							if(portKey.equals(vEntryKey) && portValue.equals(vEntryValue)) {
 								if(cnt == 0) {
 									listStr = jsonStr;
 								} else {
@@ -696,7 +669,7 @@ public class OFMOpenstackML2Connector extends OFModule implements IOpenstackML2C
 	@Override
 	public void createPort(PortDefinition port) {
 		
-		String porId = port.porId;
+		String portId = port.portId;
 		String binding_host_id = port.binding_host_id;
 		List<String> allowed_address_pairs = port.allowed_address_pairs;
 		List<String> extra_dhcp_opts = port.extra_dhcp_opts;
@@ -704,54 +677,53 @@ public class OFMOpenstackML2Connector extends OFModule implements IOpenstackML2C
 		Map<String, String> binding_profile = port.binding_profile;
 		List<Map<String, Object>> security_groups = port.security_groups;
 		String device_id = port.device_id;
-		String porName = port.porName;
+		String portName = port.portName;
 		String admin_state_up = port.admin_state_up;
 		Map<String, String> binding_vif_details = port.binding_vif_details;
-		String binding_vif_detail = port.binding_vif_detail;
 		String binding_vnic_type = port.binding_vnic_type;
 		String binding_vif_type = port.binding_vif_type;
 		String mac_address = port.mac_address;
 		
-		if(vPorsByGuid.containsKey(porId)) {
-			vPorsByGuid.get(porId).setBindingHostId(binding_host_id);				// port already exists, just updating binding:host_id
-			vPorsByGuid.get(porId).setAllowedAddressPairs(allowed_address_pairs);	// port already exists, just updating allowed_address_pairs
-			vPorsByGuid.get(porId).setExtraDhcpOpts(extra_dhcp_opts);				// port already exists, just updating extra_dhcp_opts
-			vPorsByGuid.get(porId).setDeviceOwner(device_owner);					// port already exists, just updating device_owner
-			vPorsByGuid.get(porId).setBindingProfile(binding_profile);				// port already exists, just updating binding_profile
-			vPorsByGuid.get(porId).setSecurityGroups(security_groups);				// port already exists, just updating security_groups
-			vPorsByGuid.get(porId).setDeviceId(device_id);							// port already exists, just updating device_id
-			vPorsByGuid.get(porId).setPorName(porName);								// port already exists, just updating name
-			vPorsByGuid.get(porId).setAdminStateUp(admin_state_up);					// port already exists, just updating admin_state_up
-			vPorsByGuid.get(porId).setBindingVifDetails(binding_vif_details);		// port already exists, just updating binding:vif_details
-			vPorsByGuid.get(porId).setBindingVifDetails(binding_vif_detail);
-			vPorsByGuid.get(porId).setBindingVnicType(binding_vnic_type);			// port already exists, just updating binding:vnic_type
-			vPorsByGuid.get(porId).setBindingVifType(binding_vif_type);				// port already exists, just updating binding:vif_type
-			vPorsByGuid.get(porId).setMACAddress(mac_address);
+		if(vPorsByGuid.containsKey(portId)) {
+			vPorsByGuid.get(portId).setBindingHostId(binding_host_id);				// port already exists, just updating binding:host_id
+			vPorsByGuid.get(portId).setAllowedAddressPairs(allowed_address_pairs);	// port already exists, just updating allowed_address_pairs
+			vPorsByGuid.get(portId).setExtraDhcpOpts(extra_dhcp_opts);				// port already exists, just updating extra_dhcp_opts
+			vPorsByGuid.get(portId).setDeviceOwner(device_owner);					// port already exists, just updating device_owner
+			vPorsByGuid.get(portId).setBindingProfile(binding_profile);				// port already exists, just updating binding_profile
+			vPorsByGuid.get(portId).setSecurityGroups(security_groups);				// port already exists, just updating security_groups
+			vPorsByGuid.get(portId).setDeviceId(device_id);							// port already exists, just updating device_id
+			vPorsByGuid.get(portId).setPorName(portName);								// port already exists, just updating name
+			vPorsByGuid.get(portId).setAdminStateUp(admin_state_up);					// port already exists, just updating admin_state_up
+			vPorsByGuid.get(portId).setBindingVifDetails(binding_vif_details);		// port already exists, just updating binding:vif_details
+			vPorsByGuid.get(portId).setBindingVnicType(binding_vnic_type);			// port already exists, just updating binding:vnic_type
+			vPorsByGuid.get(portId).setBindingVifType(binding_vif_type);				// port already exists, just updating binding:vif_type
+			vPorsByGuid.get(portId).setMACAddress(mac_address);
 		} else {
-			vPorsByGuid.put(porId, new VirtualPort(port));	// create new port
+			vPorsByGuid.put(portId, new VirtualPort(port));	// create new port
 			
 			OFMTunnelManager tm = new OFMTunnelManager();
 			tm.create_port_flow(port);
 		}
 		
 		if (port.mac_address != null && port.device_owner != null) {
-			MACAddress mac = MACAddress.valueOf(mac_address);
-			macToGuid.put(mac, porId);
+			MACAddress mac = MACAddress.valueOf(mac_address);		
+			macToGuid.put(mac, portId);
 		}
 		
 	}
 
 	@Override
-	public void deletePort(String porId) {
+	public void deletePort(String portId) {
 		
-		if(vPorsByGuid.get(porId) != null){
-			vPorsByGuid.remove(porId);
+		if(vPorsByGuid.get(portId) != null){
+			vPorsByGuid.remove(portId);
 		}
 		
-		macToGuid.remove(porId);
+		MACAddress mac = MACAddress.valueOf(vPorsByGuid.get(portId).mac_address);
+		macToGuid.remove(mac);
 		
 		OFMTunnelManager tm = new OFMTunnelManager();
-		tm.delete_port_flow(porId);
+		tm.delete_port_flow(portId);
 	}
 	
 	@Override
@@ -762,7 +734,7 @@ public class OFMOpenstackML2Connector extends OFModule implements IOpenstackML2C
 			if (gatewayToGuid.containsKey(i)) {
 				MACAddress mac = MACAddress.valueOf(device.getMACAddress());
 				
-System.out.println("Adding MAC {"+HexString.toHexString(mac.toBytes())+"} with IP {"+IPv4.fromIPv4Address(i)+"} a a gateway");
+				logger.debug("Adding MAC {"+HexString.toHexString(mac.toBytes())+"} with IP {"+IPv4.fromIPv4Address(i)+"} a a gateway");
 
 				macToGateway.put(mac, i.toString());
 			}
@@ -775,7 +747,7 @@ System.out.println("Adding MAC {"+HexString.toHexString(mac.toBytes())+"} with I
 		MACAddress mac = MACAddress.valueOf(device.getMACAddress());
 		if (macToGateway.containsKey(mac)) {
 
-System.out.println("Removing MAC {"+HexString.toHexString(mac.toBytes())+"} as a gateway");
+			logger.debug("Removing MAC {"+HexString.toHexString(mac.toBytes())+"} as a gateway");
 
 			macToGateway.remove(mac);
 		}
