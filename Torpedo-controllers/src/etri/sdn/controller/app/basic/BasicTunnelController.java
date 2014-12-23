@@ -13,6 +13,7 @@ import etri.sdn.controller.module.devicemanager.OFMDefaultEntityClassifier;
 import etri.sdn.controller.module.devicemanager.OFMDeviceManager;
 import etri.sdn.controller.module.firewall.OFMFirewall;
 import etri.sdn.controller.module.forwarding.Forwarding;
+import etri.sdn.controller.module.inaastopo.OFMiNaaSTopoManager;
 import etri.sdn.controller.module.linkdiscovery.OFMLinkDiscovery;
 import etri.sdn.controller.module.ml2.OFMOpenstackML2Connector;
 //import etri.sdn.controller.module.netfailover.OFMNetFailover;
@@ -39,6 +40,7 @@ public class BasicTunnelController extends OFController {
 //	private OFMNetFailover m_netfailover = new OFMNetFailover();
 	private OFMOpenstackML2Connector m_ml2 = new OFMOpenstackML2Connector();
 	private OFMTunnelManager m_tunnel_manager = new OFMTunnelManager();
+	private OFMiNaaSTopoManager m_inaas_topo = new OFMiNaaSTopoManager();
 	
 	private OFModule[] packet_in_pipeline = {  
 			m_link_discovery, 
@@ -73,6 +75,7 @@ public class BasicTunnelController extends OFController {
 		m_forwarding.init(this);
 		m_staticflow.init(this);			// this is not a part of the pipeline.
 //		m_netfailover.init(this);
+		m_inaas_topo.init(this);
 	}
 
 	@Override
