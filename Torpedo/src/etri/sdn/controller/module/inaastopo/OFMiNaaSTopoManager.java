@@ -1,13 +1,19 @@
 package etri.sdn.controller.module.inaastopo;
 
+import java.io.IOException;
 import java.util.Collection;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import java.util.Map.Entry;
 
+import org.codehaus.jackson.map.ObjectMapper;
+import org.codehaus.jackson.type.TypeReference;
 import org.projectfloodlight.openflow.protocol.OFMessage;
 import org.projectfloodlight.openflow.protocol.OFType;
 import org.projectfloodlight.openflow.util.HexString;
+import org.restlet.data.Method;
+import org.restlet.resource.ClientResource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -16,11 +22,10 @@ import etri.sdn.controller.MessageContext;
 import etri.sdn.controller.OFMFilter;
 import etri.sdn.controller.OFModel;
 import etri.sdn.controller.OFModule;
+import etri.sdn.controller.TorpedoProperties;
 import etri.sdn.controller.module.devicemanager.IDevice;
 import etri.sdn.controller.module.devicemanager.IDeviceService;
 import etri.sdn.controller.module.linkdiscovery.ILinkDiscoveryService;
-import etri.sdn.controller.module.linkdiscovery.Link;
-import etri.sdn.controller.module.linkdiscovery.LinkInfo;
 import etri.sdn.controller.module.ml2.RestPort.PortDefinition;
 import etri.sdn.controller.module.routing.IRoutingDecision;
 import etri.sdn.controller.module.tunnelmanager.IOFMTunnelManagerService;
@@ -181,30 +186,74 @@ public class OFMiNaaSTopoManager extends OFModule implements IOFMiNaaSTopoManage
 		return hostlist.toString();
 	}
 	
+//	public String getLinkList() {
+//		StringBuffer linklist = new StringBuffer();
+//		linklist.append("\"linklist\":[");
+//		
+//		if(linkDiscovery.getLinks() != null) {
+//			int linkCnt = 0;
+//			for(Entry<Link, LinkInfo> linkEntry : linkDiscovery.getLinks().entrySet()) {
+//				if(!tunnelManager.getBridgeDpid().containsKey(linkEntry.getKey().getSrc()) &&
+//						!tunnelManager.getBridgeDpid().containsKey(linkEntry.getKey().getDst())) {
+//					if(linkCnt == 0) {
+//						linklist.append("{");
+//					} else {
+//						linklist.append(",{");
+//					}
+//					linklist.append("\"src_sw\":\""+HexString.toHexString(linkEntry.getKey().getSrc())+"\",");
+//					linklist.append("\"src_port\":\""+linkEntry.getKey().getSrcPort().getPortNumber()+",");
+//					linklist.append("\"dst_sw\":\""+HexString.toHexString(linkEntry.getKey().getDst())+"\",");
+//					linklist.append("\"dst_port\":\""+linkEntry.getKey().getDstPort().getPortNumber());
+//					linklist.append("}");
+//					
+//					linkCnt++;
+//				}
+//			}
+//		}
+//		linklist.append("]");
+//		
+//		return linklist.toString();
+//	}
 	public String getLinkList() {
+		TorpedoProperties sysconf = TorpedoProperties.loadConfiguration();
+		String rest_port = sysconf.getString("web-server-port");
+		String restUri = "http://localhost:"+rest_port+"/wm/topology/links/json";
+		
 		StringBuffer linklist = new StringBuffer();
 		linklist.append("\"linklist\":[");
 		
-		if(linkDiscovery.getLinks() != null) {
+		try {
+			ClientResource resource = new ClientResource(restUri);
+			resource.setMethod(Method.GET);
+			resource.get();
+
+			ObjectMapper om = new ObjectMapper();
+			List<Map<String, Object>> resultVal = om.readValue(resource.getResponse().getEntityAsText(), new TypeReference<List<Map<String, Object>>>(){});
+			
 			int linkCnt = 0;
-			for(Entry<Link, LinkInfo> linkEntry : linkDiscovery.getLinks().entrySet()) {
-				if(!tunnelManager.getBridgeDpid().containsKey(linkEntry.getKey().getSrc()) &&
-						!tunnelManager.getBridgeDpid().containsKey(linkEntry.getKey().getDst())) {
+			for(Map<String, Object> linkMap : resultVal) {
+				long srcSwitchDpid = Long.parseLong(linkMap.get("src-switch").toString().replaceAll(":", ""), 16);
+				long dstSwitchDpid = Long.parseLong(linkMap.get("dst-switch").toString().replaceAll(":", ""), 16);
+				
+				if(!tunnelManager.getBridgeDpid().containsKey(srcSwitchDpid) && !tunnelManager.getBridgeDpid().containsKey(dstSwitchDpid)) {
 					if(linkCnt == 0) {
 						linklist.append("{");
 					} else {
 						linklist.append(",{");
 					}
-					linklist.append("\"src_sw\":\""+HexString.toHexString(linkEntry.getKey().getSrc())+"\",");
-					linklist.append("\"src_port\":\""+linkEntry.getKey().getSrcPort().getPortNumber()+",");
-					linklist.append("\"dst_sw\":\""+HexString.toHexString(linkEntry.getKey().getDst())+"\",");
-					linklist.append("\"dst_port\":\""+linkEntry.getKey().getDstPort().getPortNumber());
+					linklist.append("\"src_sw\":\""+linkMap.get("src-switch").toString()+"\",");
+					linklist.append("\"src_port\":"+linkMap.get("src-port")+",");
+					linklist.append("\"dst_sw\":\""+linkMap.get("dst-switch").toString()+"\",");
+					linklist.append("\"dst_port\":"+linkMap.get("dst-port"));
 					linklist.append("}");
 					
 					linkCnt++;
 				}
 			}
+		} catch(IOException e) {
+			logger.debug("linklist json parse exception.");
 		}
+		
 		linklist.append("]");
 		
 		return linklist.toString();
@@ -234,10 +283,6 @@ public class OFMiNaaSTopoManager extends OFModule implements IOFMiNaaSTopoManage
 			vmlist.append("\"tenant_id\":\""+vmEntry.getValue().tenant_id+"\",");
 			vmlist.append("\"network_id\":\""+vmEntry.getValue().network_id+"\",");
 			vmlist.append("\"subnet_id\":\""+subnet_id+"\"");
-			
-//			vmlist.append("\"vm_id\":\""++"\",");
-//			vmlist.append("\"vm_id\":\""++"\",");
-			
 			vmlist.append("}");
 			
 			vmCnt++;
