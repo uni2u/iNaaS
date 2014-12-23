@@ -30,7 +30,6 @@ import etri.sdn.controller.OFMFilter;
 import etri.sdn.controller.OFModel;
 import etri.sdn.controller.OFModule;
 import etri.sdn.controller.module.devicemanager.IDevice;
-import etri.sdn.controller.module.devicemanager.IDeviceListener;
 import etri.sdn.controller.module.ml2.RestNetwork.NetworkDefinition;
 import etri.sdn.controller.module.ml2.RestPort.PortDefinition;
 import etri.sdn.controller.module.ml2.RestSubnet.SubnetDefinition;
@@ -43,11 +42,10 @@ import etri.sdn.controller.protocol.io.IOFSwitch;
 import etri.sdn.controller.protocol.packet.DHCP;
 import etri.sdn.controller.protocol.packet.Ethernet;
 import etri.sdn.controller.protocol.packet.IPacket;
-import etri.sdn.controller.protocol.packet.IPv4;
 import etri.sdn.controller.util.MACAddress;
 
 
-public class OFMOpenstackML2Connector extends OFModule implements IOpenstackML2ConnectorService, IDeviceListener {
+public class OFMOpenstackML2Connector extends OFModule implements IOpenstackML2ConnectorService {
 	
 	public static final Logger logger = LoggerFactory.getLogger(OFMOpenstackML2Connector.class);
 
@@ -60,8 +58,8 @@ public class OFMOpenstackML2Connector extends OFModule implements IOpenstackML2C
 	protected Map<String, VirtualNetwork> vNetsByGuid;	// List of all created virtual networks
 	protected Map<String, VirtualSubnet> vSubsByGuid;	// List of all created virtual subnets
 	protected Map<String, String> subIdToNetId;			// Subnet ID -> Network Id
-	protected Map<String, VirtualPort> vPorsByGuid;		// List of all created virtual ports
-	protected Map<MACAddress, String> macToGuid; 		// Host MAC -> Network ID
+	protected Map<String, VirtualPort> vPortsByGuid;		// List of all created virtual ports
+	protected Map<String, String> macToGuid; 		// Host MAC -> Network ID
 	protected Map<MACAddress, String> macToGateway; 	// Host MAC -> Gateway IP
 	protected Map<String, Set<String>> gatewayToGuid; 	// Gateway IP -> Network ID
 	protected Map<String, String> guidToGateway; 		// Network ID -> Gateway IP
@@ -88,8 +86,8 @@ public class OFMOpenstackML2Connector extends OFModule implements IOpenstackML2C
 		vNetsByGuid = new ConcurrentHashMap<String, VirtualNetwork>();
 		vSubsByGuid = new ConcurrentHashMap<String, VirtualSubnet>();
 		subIdToNetId = new ConcurrentHashMap<String, String>();
-		vPorsByGuid = new ConcurrentHashMap<String, VirtualPort>();
-		macToGuid = new ConcurrentHashMap<MACAddress, String>();
+		vPortsByGuid = new ConcurrentHashMap<String, VirtualPort>();
+		macToGuid = new ConcurrentHashMap<String, String>();
 		macToGateway = new ConcurrentHashMap<MACAddress, String>();
 		gatewayToGuid = new ConcurrentHashMap<String, Set<String>>();
 		guidToGateway = new ConcurrentHashMap<String, String>();
@@ -150,7 +148,6 @@ public class OFMOpenstackML2Connector extends OFModule implements IOpenstackML2C
 				String gwIpSrcNet = guidToGateway.get(srcNet);
 				
 				if ((gwIpSrcNet != null) && (gwIp.equals(gwIpSrcNet))) {
-//System.out.println("isDefaultGateway = "+gwIpSrcNet);
 					return true;
 				}
 			}
@@ -198,10 +195,6 @@ public class OFMOpenstackML2Connector extends OFModule implements IOpenstackML2C
 		IPacket p3 = p2.getPayload(); // Application
 		if ((p3 != null) && (p3 instanceof DHCP)) {
 			// Todo...
-			// Forwarding udhcpc start!!!!!!!!!!!!!!!!!!!!!!!
-//System.out.println("#################### dhcp REPLY = "+DHCP.OPCODE_REPLY);
-//System.out.println("#################### dhcp REQUEST = "+DHCP.OPCODE_REQUEST);
-//System.out.println("#################### dhcp HW Type = "+DHCP.HWTYPE_ETHERNET);
 			return true;
 		}
 		
@@ -229,9 +222,6 @@ public class OFMOpenstackML2Connector extends OFModule implements IOpenstackML2C
 		// If the host is on an unknown network we deny it.
 		// We make exceptions for ARP and DHCP.
 		OFPort inPort = getInputPort(pi);
-		
-//		IDevice srcDevice = (IDevice) cntx.get(MessageContext.SRC_DEVICE);
-//		IDevice dstDevice = (IDevice) cntx.get(MessageContext.DST_DEVICE);
 
 		if (eth.isBroadcast() == true || eth.isMulticast() == true) {
 			
@@ -455,9 +445,10 @@ public class OFMOpenstackML2Connector extends OFModule implements IOpenstackML2C
 		
 		Collection<MACAddress> deleteList = new ArrayList<MACAddress>();
 		
-		for (MACAddress host : macToGuid.keySet()) {
+		for (String host : macToGuid.keySet()) {
 			if (macToGuid.get(host).equals(netId)) {
-				deleteList.add(host);
+				MACAddress hostMac = MACAddress.valueOf(host.toString());
+				deleteList.add(hostMac);
 			}
 		}
 		
@@ -619,11 +610,11 @@ public class OFMOpenstackML2Connector extends OFModule implements IOpenstackML2C
 			if(!"".equals(portId)) {
 
 				ObjectMapper omp = new ObjectMapper();
-				listStr = "{\"port\":" + omp.writeValueAsString(vPorsByGuid.get(portId)) + "}";
+				listStr = "{\"port\":" + omp.writeValueAsString(vPortsByGuid.get(portId)) + "}";
 
 			} else {
 				int cnt = 0;
-				for(Entry<String, VirtualPort> entry : vPorsByGuid.entrySet()) {
+				for(Entry<String, VirtualPort> entry : vPortsByGuid.entrySet()) {
 					ObjectMapper omm = new ObjectMapper();
 					String jsonStr = omm.writeValueAsString(entry.getValue());
 					
@@ -682,32 +673,27 @@ public class OFMOpenstackML2Connector extends OFModule implements IOpenstackML2C
 		Map<String, String> binding_vif_details = port.binding_vif_details;
 		String binding_vnic_type = port.binding_vnic_type;
 		String binding_vif_type = port.binding_vif_type;
-		String mac_address = port.mac_address;
+//		String mac_address = port.mac_address;
 		
-		if(vPorsByGuid.containsKey(portId)) {
-			vPorsByGuid.get(portId).setBindingHostId(binding_host_id);				// port already exists, just updating binding:host_id
-			vPorsByGuid.get(portId).setAllowedAddressPairs(allowed_address_pairs);	// port already exists, just updating allowed_address_pairs
-			vPorsByGuid.get(portId).setExtraDhcpOpts(extra_dhcp_opts);				// port already exists, just updating extra_dhcp_opts
-			vPorsByGuid.get(portId).setDeviceOwner(device_owner);					// port already exists, just updating device_owner
-			vPorsByGuid.get(portId).setBindingProfile(binding_profile);				// port already exists, just updating binding_profile
-			vPorsByGuid.get(portId).setSecurityGroups(security_groups);				// port already exists, just updating security_groups
-			vPorsByGuid.get(portId).setDeviceId(device_id);							// port already exists, just updating device_id
-			vPorsByGuid.get(portId).setPorName(portName);								// port already exists, just updating name
-			vPorsByGuid.get(portId).setAdminStateUp(admin_state_up);					// port already exists, just updating admin_state_up
-			vPorsByGuid.get(portId).setBindingVifDetails(binding_vif_details);		// port already exists, just updating binding:vif_details
-			vPorsByGuid.get(portId).setBindingVnicType(binding_vnic_type);			// port already exists, just updating binding:vnic_type
-			vPorsByGuid.get(portId).setBindingVifType(binding_vif_type);				// port already exists, just updating binding:vif_type
-			vPorsByGuid.get(portId).setMACAddress(mac_address);
+		if(vPortsByGuid.containsKey(portId)) {
+			vPortsByGuid.get(portId).setBindingHostId(binding_host_id);				// port already exists, just updating binding:host_id
+			vPortsByGuid.get(portId).setAllowedAddressPairs(allowed_address_pairs);	// port already exists, just updating allowed_address_pairs
+			vPortsByGuid.get(portId).setExtraDhcpOpts(extra_dhcp_opts);				// port already exists, just updating extra_dhcp_opts
+			vPortsByGuid.get(portId).setDeviceOwner(device_owner);					// port already exists, just updating device_owner
+			vPortsByGuid.get(portId).setBindingProfile(binding_profile);				// port already exists, just updating binding_profile
+			vPortsByGuid.get(portId).setSecurityGroups(security_groups);				// port already exists, just updating security_groups
+			vPortsByGuid.get(portId).setDeviceId(device_id);							// port already exists, just updating device_id
+			vPortsByGuid.get(portId).setPorName(portName);								// port already exists, just updating name
+			vPortsByGuid.get(portId).setAdminStateUp(admin_state_up);					// port already exists, just updating admin_state_up
+			vPortsByGuid.get(portId).setBindingVifDetails(binding_vif_details);		// port already exists, just updating binding:vif_details
+			vPortsByGuid.get(portId).setBindingVnicType(binding_vnic_type);			// port already exists, just updating binding:vnic_type
+			vPortsByGuid.get(portId).setBindingVifType(binding_vif_type);				// port already exists, just updating binding:vif_type
+//			vPortsByGuid.get(portId).setMACAddress(mac_address);
 		} else {
-			vPorsByGuid.put(portId, new VirtualPort(port));	// create new port
+			vPortsByGuid.put(portId, new VirtualPort(port));	// create new port
 			
 			OFMTunnelManager tm = new OFMTunnelManager();
 			tm.create_port_flow(port);
-		}
-		
-		if (port.mac_address != null && port.device_owner != null) {
-			MACAddress mac = MACAddress.valueOf(mac_address);		
-			macToGuid.put(mac, portId);
 		}
 		
 	}
@@ -715,60 +701,11 @@ public class OFMOpenstackML2Connector extends OFModule implements IOpenstackML2C
 	@Override
 	public void deletePort(String portId) {
 		
-		if(vPorsByGuid.get(portId) != null){
-			vPorsByGuid.remove(portId);
+		if(vPortsByGuid.get(portId) != null){
+			vPortsByGuid.remove(portId);
 		}
-		
-		MACAddress mac = MACAddress.valueOf(vPorsByGuid.get(portId).mac_address);
-		macToGuid.remove(mac);
 		
 		OFMTunnelManager tm = new OFMTunnelManager();
 		tm.delete_port_flow(portId);
 	}
-	
-	@Override
-	public void deviceAdded(IDevice device) {
-		// TODO Auto-generated method stub
-		if (device.getIPv4Addresses() == null) return;
-		for (Integer i : device.getIPv4Addresses()) {
-			if (gatewayToGuid.containsKey(i)) {
-				MACAddress mac = MACAddress.valueOf(device.getMACAddress());
-				
-				logger.debug("Adding MAC {"+HexString.toHexString(mac.toBytes())+"} with IP {"+IPv4.fromIPv4Address(i)+"} a a gateway");
-
-				macToGateway.put(mac, i.toString());
-			}
-		}
-	}
-	
-	@Override
-	public void deviceRemoved(IDevice device) {
-		// TODO Auto-generated method stub
-		MACAddress mac = MACAddress.valueOf(device.getMACAddress());
-		if (macToGateway.containsKey(mac)) {
-
-			logger.debug("Removing MAC {"+HexString.toHexString(mac.toBytes())+"} as a gateway");
-
-			macToGateway.remove(mac);
-		}
-	}
-
-	@Override
-	public void deviceMoved(IDevice device) {
-		// TODO Auto-generated method stub
-		
-	}
-
-	@Override
-	public void deviceIPV4AddrChanged(IDevice device) {
-		// TODO Auto-generated method stub
-		deviceAdded(device);
-	}
-
-	@Override
-	public void deviceVlanChanged(IDevice device) {
-		// TODO Auto-generated method stub
-		
-	}
-
 }
