@@ -1,6 +1,8 @@
 package etri.sdn.controller.module.inaastopo;
 
 import java.io.IOException;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.util.Collection;
 import java.util.LinkedList;
 import java.util.List;
@@ -158,7 +160,7 @@ public class OFMiNaaSTopoManager extends OFModule implements IOFMiNaaSTopoManage
 		for(IDevice deviceEntry : device.getAllDevices()) {
 			if(deviceEntry.getIPv4Addresses().length > 0) {
 				String host_ip = IPv4.fromIPv4Address(deviceEntry.getIPv4Addresses()[0]);
-				String host_name = tunnelManager.getNodeInfo().containsKey(host_ip) ? tunnelManager.getNodeInfo().get(host_ip).node_name : "";
+				String host_name = tunnelManager.getNodeInfo().containsKey(host_ip) ? tunnelManager.getNodeInfo().get(host_ip).node_name : tunnelManager.getHostName(host_ip);
 				
 				if(!tunnelManager.getVmByIp().containsKey(host_ip)) {
 					if(hostCnt == 0) {

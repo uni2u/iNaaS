@@ -817,4 +817,17 @@ public class OFMTunnelManager extends OFModule implements IOFMTunnelManagerServi
 		
 		return vmByIp;
 	}
+	
+	@Override
+	public String getHostName(String host_ip) {
+		String host_name = host_ip;
+		
+		for(Entry<String, NodeDefinition> nodeEntry : nodesByIp.entrySet()) {
+			if(host_ip.equals(nodeEntry.getKey())) {
+				host_name = nodeEntry.getValue().node_name;
+			}
+		}
+		
+		return host_name;
+	}
 }
