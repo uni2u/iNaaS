@@ -692,7 +692,7 @@ public class OFMTunnelManager extends OFModule implements IOFMTunnelManagerServi
 						for(Entry<String, PortDefinition> localPortMap : nodesByIp.get(entry.getKey()).used_local_vPortsByGuid.entrySet()) {
 //							String port_name = "";
 							String tag = "";
-							if(nodesByIp.get(entry.getKey()).local_vNetidToVlanid != null) {
+							if(nodesByIp.get(entry.getKey()).local_vNetidToVlanid != null && localPortMap.getValue().network_id != null) {
 								if(nodesByIp.get(entry.getKey()).local_vNetidToVlanid.containsKey(localPortMap.getValue().network_id)) {
 									tag = nodesByIp.get(entry.getKey()).local_vNetidToVlanid.get(localPortMap.getValue().network_id);
 								}

@@ -75,7 +75,7 @@ public interface IOpenstackML2ConnectorService extends IService {
 	 * and the fields you want to update.
 	 * @param port : PortDefinition - port info
 	 */
-	public void createPort(PortDefinition port);
+	public void createPort(PortDefinition port, String actionType);
 
 	/**
 	 * Deletes a virtual port.

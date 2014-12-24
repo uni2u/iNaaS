@@ -126,6 +126,13 @@ public class RestPort extends Restlet {
 
 		if (m == Method.POST || m == Method.PUT) {
 			PortDefinition port = new PortDefinition();
+			
+			String actionType = "";
+			if("".equals(portUUID)) {
+				actionType = "create";
+			} else {
+				actionType = "update";
+			}
 
 			try {
 				jsonToPortDefinition(request.getEntityAsText(), port);
@@ -141,7 +148,7 @@ public class RestPort extends Restlet {
 				}
 			}
 
-			parent.getModule().createPort(port);
+			parent.getModule().createPort(port, actionType);
 			response.setStatus(Status.SUCCESS_OK);
 
 		} else if (m == Method.GET) {

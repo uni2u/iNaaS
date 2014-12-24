@@ -658,7 +658,7 @@ public class OFMOpenstackML2Connector extends OFModule implements IOpenstackML2C
 	}
 
 	@Override
-	public void createPort(PortDefinition port) {
+	public void createPort(PortDefinition port, String actionType) {
 		
 		String portId = port.portId;
 		String binding_host_id = port.binding_host_id;
@@ -692,8 +692,10 @@ public class OFMOpenstackML2Connector extends OFModule implements IOpenstackML2C
 		} else {
 			vPortsByGuid.put(portId, new VirtualPort(port));	// create new port
 			
-			OFMTunnelManager tm = new OFMTunnelManager();
-			tm.create_port_flow(port);
+			if("create".equals(actionType)) {
+				OFMTunnelManager tm = new OFMTunnelManager();
+				tm.create_port_flow(port);
+			}
 		}
 		
 	}
