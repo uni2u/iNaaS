@@ -823,7 +823,7 @@ public class OFMTunnelManager extends OFModule implements IOFMTunnelManagerServi
 		String host_name = host_ip;
 		
 		for(Entry<String, NodeDefinition> nodeEntry : nodesByIp.entrySet()) {
-			if(host_ip.equals(nodeEntry.getKey())) {
+			if(host_ip.equals(nodeEntry.getValue().node_ip_tun)) {
 				host_name = nodeEntry.getValue().node_name;
 			}
 		}
