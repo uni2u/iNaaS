@@ -297,14 +297,17 @@ public class OFMiNaaSTopoManager extends OFModule implements IOFMiNaaSTopoManage
 				vmlist.append("\"mac\":\""+port.mac_address+"\",");
 				String vm_ip = "";
 				String subnet_id = "";
+				String port_id = "";
 				if(port.fixed_ips.size() > 0) {
 					vm_ip = port.fixed_ips.get(0).get("ip_address");
 					subnet_id = port.fixed_ips.get(0).get("subnet_id");
+					port_id = port.fixed_ips.get(0).get("portId");
 				}
 				vmlist.append("\"vm_ip\":\""+vm_ip+"\",");
 				vmlist.append("\"tenant_id\":\""+port.tenant_id+"\",");
 				vmlist.append("\"network_id\":\""+port.network_id+"\",");
-				vmlist.append("\"subnet_id\":\""+subnet_id+"\"");
+				vmlist.append("\"subnet_id\":\""+subnet_id+"\",");
+				vmlist.append("\"port_id\":\""+port_id+"\"");
 				vmlist.append("}");
 				
 				vnicCnt++;
