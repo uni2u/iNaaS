@@ -1,13 +1,13 @@
 package etri.sdn.controller.module.inaastopo;
 
 import java.io.IOException;
-import java.net.InetAddress;
-import java.net.UnknownHostException;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.concurrent.ConcurrentHashMap;
 
 import org.codehaus.jackson.map.ObjectMapper;
 import org.codehaus.jackson.type.TypeReference;
@@ -265,30 +265,79 @@ public class OFMiNaaSTopoManager extends OFModule implements IOFMiNaaSTopoManage
 		StringBuffer vmlist = new StringBuffer();
 		vmlist.append("\"vmlist\":[");
 		
+		
+		Map<String, List<PortDefinition>> vmMap = new ConcurrentHashMap<String, List<PortDefinition>>();
+		for(Entry<String, PortDefinition> portEntry : tunnelManager.getVmByGuid().entrySet()) {
+			if(vmMap.containsKey(portEntry.getValue().device_id)) {
+				vmMap.get(portEntry.getValue().device_id).add(portEntry.getValue());
+			} else {
+				List<PortDefinition> portList = new ArrayList<PortDefinition>();
+				portList.add(portEntry.getValue());
+				vmMap.put(portEntry.getValue().device_id, portList);
+			}
+		}
+		
 		int vmCnt = 0;
-		for(Entry<String, PortDefinition> vmEntry : tunnelManager.getVmByGuid().entrySet()) {
+		for(Entry<String, List<PortDefinition>> vmEntry : vmMap.entrySet()) {
 			if(vmCnt == 0) {
 				vmlist.append("{");
 			} else {
 				vmlist.append(",{");
 			}
-			vmlist.append("\"vm_id\":\""+vmEntry.getValue().device_id+"\",");
-			vmlist.append("\"connected_host\":\""+vmEntry.getValue().binding_host_id+"\",");
-			vmlist.append("\"mac\":\""+vmEntry.getValue().mac_address+"\",");
-			String vm_ip = "";
-			String subnet_id = "";
-			if(vmEntry.getValue().fixed_ips.size() > 0) {
-				vm_ip = vmEntry.getValue().fixed_ips.get(0).get("ip_address");
-				subnet_id = vmEntry.getValue().fixed_ips.get(0).get("subnet_id");
+			vmlist.append("\"vm_id\":\""+vmEntry.getKey()+"\",");
+			vmlist.append("\"connected_host\":\""+vmEntry.getValue().get(0).binding_host_id+"\",");
+			vmlist.append("\"vnics\":[");
+			int vnicCnt = 0;
+			for(PortDefinition port : vmEntry.getValue()) {
+				if(vnicCnt == 0) {
+					vmlist.append("{");
+				} else {
+					vmlist.append(",{");
+				}
+				vmlist.append("\"mac\":\""+port.mac_address+"\",");
+				String vm_ip = "";
+				String subnet_id = "";
+				if(port.fixed_ips.size() > 0) {
+					vm_ip = port.fixed_ips.get(0).get("ip_address");
+					subnet_id = port.fixed_ips.get(0).get("subnet_id");
+				}
+				vmlist.append("\"vm_ip\":\""+vm_ip+"\",");
+				vmlist.append("\"tenant_id\":\""+port.tenant_id+"\",");
+				vmlist.append("\"network_id\":\""+port.network_id+"\",");
+				vmlist.append("\"subnet_id\":\""+subnet_id+"\"");
+				vmlist.append("}");
+				
+				vnicCnt++;
 			}
-			vmlist.append("\"vm_ip\":\""+vm_ip+"\",");
-			vmlist.append("\"tenant_id\":\""+vmEntry.getValue().tenant_id+"\",");
-			vmlist.append("\"network_id\":\""+vmEntry.getValue().network_id+"\",");
-			vmlist.append("\"subnet_id\":\""+subnet_id+"\"");
+			vmlist.append("]");
 			vmlist.append("}");
 			
 			vmCnt++;
 		}
+		
+//		for(Entry<String, PortDefinition> vmEntry : tunnelManager.getVmByGuid().entrySet()) {
+//			if(vmCnt == 0) {
+//				vmlist.append("{");
+//			} else {
+//				vmlist.append(",{");
+//			}
+//			vmlist.append("\"vm_id\":\""+vmEntry.getValue().device_id+"\",");
+//			vmlist.append("\"connected_host\":\""+vmEntry.getValue().binding_host_id+"\",");
+//			vmlist.append("\"mac\":\""+vmEntry.getValue().mac_address+"\",");
+//			String vm_ip = "";
+//			String subnet_id = "";
+//			if(vmEntry.getValue().fixed_ips.size() > 0) {
+//				vm_ip = vmEntry.getValue().fixed_ips.get(0).get("ip_address");
+//				subnet_id = vmEntry.getValue().fixed_ips.get(0).get("subnet_id");
+//			}
+//			vmlist.append("\"vm_ip\":\""+vm_ip+"\",");
+//			vmlist.append("\"tenant_id\":\""+vmEntry.getValue().tenant_id+"\",");
+//			vmlist.append("\"network_id\":\""+vmEntry.getValue().network_id+"\",");
+//			vmlist.append("\"subnet_id\":\""+subnet_id+"\"");
+//			vmlist.append("}");
+//			
+//			vmCnt++;
+//		}
 		vmlist.append("]");
 		
 		return vmlist.toString();
