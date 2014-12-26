@@ -6,6 +6,7 @@ import java.nio.ByteBuffer;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 import org.projectfloodlight.openflow.protocol.OFFlowRemoved;
 import org.projectfloodlight.openflow.protocol.OFMessage;
@@ -35,7 +36,7 @@ import etri.sdn.controller.protocol.packet.IPv4;
 import etri.sdn.controller.protocol.packet.UDP;
 import etri.sdn.controller.util.MACAddress;
 
-public class OFVxlanFlowMappingManager<K, V> extends OFModule  implements IService {
+public class OFVxlanFlowMappingManager<K, V> extends OFModule  implements IVxlanFlowMappingService {
 	static final Logger logger = LoggerFactory.getLogger(OFVxlanFlowMappingManager.class);
 	OFProtocol protocol;
 	TorpedoProperties sysconf = TorpedoProperties.loadConfiguration();
@@ -323,6 +324,10 @@ public class OFVxlanFlowMappingManager<K, V> extends OFModule  implements IServi
 	protected boolean handleDisconnect(Connection conn) {
 		// TODO Auto-generated method stub
 		return false;
+	}
+	
+	public int getVnid(String srcMac, String dstMac, String srcIp, String dstIp, int srcUdpPort) {
+		return vxlanFlowMappingStorage.getVnid( srcMac,  dstMac,  srcIp,  dstIp,  srcUdpPort);
 	}
 
 
