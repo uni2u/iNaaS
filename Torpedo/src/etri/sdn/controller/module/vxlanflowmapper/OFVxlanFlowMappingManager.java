@@ -174,6 +174,8 @@ public class OFVxlanFlowMappingManager<K, V> extends OFModule  implements IServi
 //				}
 			}
 		}
+		
+		
 		return true;
 	}
 
@@ -285,9 +287,6 @@ public class OFVxlanFlowMappingManager<K, V> extends OFModule  implements IServi
 			break;
 		}
 		
-		
-
-		
 		OverlayFlowMappingEntry<String,String>  flowMapping = new OverlayFlowMappingEntry<String,String> ();
 		
 		flowMapping.put("outerSrcMac", outerSrcMac.toString());
@@ -313,6 +312,9 @@ public class OFVxlanFlowMappingManager<K, V> extends OFModule  implements IServi
 		
 		vxlanFlowMappingStorage.addO2VEnrty(o2VKey, flowMapping);
 		vxlanFlowMappingStorage.addV2OEnrty(v2OKey, flowMapping);
+		
+		
+		
 		return true;
 	}
 
