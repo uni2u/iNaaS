@@ -89,7 +89,7 @@ public class RestNetwork extends Restlet {
 		if (m == Method.POST || m == Method.PUT) {
 			NetworkDefinition network = new NetworkDefinition();
 
-			try {
+			try {			
 				jsonToNetworkDefinition(request.getEntityAsText(), network);
 			} catch (IOException e) {
 				OFMOpenstackML2Connector.logger.error("RestNetwork Could not parse JSON {}", e.getMessage());
