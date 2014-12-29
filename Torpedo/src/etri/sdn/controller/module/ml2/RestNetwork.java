@@ -49,8 +49,11 @@ public class RestNetwork extends Restlet {
 
 		ObjectMapper omm = new ObjectMapper();
 		String nInfoJson = omm.writeValueAsString(nframe.get("network"));
+
 		Map<String, Object> nInfo = omm.readValue(nInfoJson, new TypeReference<Map<String, Object>>(){});
 
+		if(nInfo != null) {
+		
 		if(nInfo.get("name") != null) {
 			network.netName = nInfo.get("name").toString();
 		}
@@ -78,6 +81,7 @@ public class RestNetwork extends Restlet {
 		if(nInfo.get("provider:segmentation_id") != null) {
 			network.provider_segmentation_id = nInfo.get("provider:segmentation_id").toString();
 		}
+		}
 	}
 
 	@Override
@@ -95,15 +99,17 @@ public class RestNetwork extends Restlet {
 				OFMOpenstackML2Connector.logger.error("RestNetwork Could not parse JSON {}", e.getMessage());
 			}
 
+			
 			// We try to get the ID from the URI only if it's not
 			// in the POST data
 			if (network.netId == null) {
 				if(!"".equals(netUUID)) {
 					network.netId = netUUID;
 				}
-			}
+			} else 
+				parent.getModule().createNetwork(network);
 
-			parent.getModule().createNetwork(network);
+//			parent.getModule().createNetwork(network);
 			response.setStatus(Status.SUCCESS_OK);
 
 		} else if (m == Method.GET) {

@@ -57,6 +57,7 @@ public class RestSubnet extends Restlet {
         String sInfoJson = omm.writeValueAsString(sframe.get("subnet"));
         Map<String, Object> sInfo = omm.readValue(sInfoJson, new TypeReference<Map<String, Object>>(){});
 
+        if(sInfo != null) {
         if(sInfo.get("name") != null) {
         	subnet.subName = sInfo.get("name").toString();
         }
@@ -102,6 +103,7 @@ public class RestSubnet extends Restlet {
         	ObjectMapper omhr = new ObjectMapper();
         	subnet.host_routes = omhr.readValue(omhr.writeValueAsString(sInfo.get("host_routes")), new TypeReference<List<String>>(){});
         }
+        }
 	}
 	
 	@Override
@@ -125,9 +127,10 @@ public class RestSubnet extends Restlet {
 	        	if(!"".equals(subUUID)) {
 	        		subnet.subId = subUUID;
 		        }
-	        }
+	        } else
+	        	parent.getModule().createSubnet(subnet);
 
-	        parent.getModule().createSubnet(subnet);
+//	        parent.getModule().createSubnet(subnet);
 	        response.setStatus(Status.SUCCESS_OK);
 			
 		} else if (m == Method.GET) {

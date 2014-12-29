@@ -59,6 +59,7 @@ public class RestPort extends Restlet {
 		String pInfoJson = omm.writeValueAsString(pframe.get("port"));
 		Map<String, Object> pInfo = omm.readValue(pInfoJson, new TypeReference<Map<String, Object>>(){});
 
+		if(pInfo != null) {
 		if(pInfo.get("binding:host_id") != null) {
 			port.binding_host_id = pInfo.get("binding:host_id").toString();
 		}
@@ -116,6 +117,7 @@ public class RestPort extends Restlet {
 		if(pInfo.get("binding:vif_type") != null) {
 			port.binding_vif_type = pInfo.get("binding:vif_type").toString();
 		}
+		}
 	}
 
 	@Override
@@ -146,9 +148,10 @@ public class RestPort extends Restlet {
 				if(!"".equals(portUUID)) {
 					port.portId = portUUID;
 				}
-			}
+			} else
+				parent.getModule().createPort(port, actionType);
 
-			parent.getModule().createPort(port, actionType);
+//			parent.getModule().createPort(port, actionType);
 			response.setStatus(Status.SUCCESS_OK);
 
 		} else if (m == Method.GET) {

@@ -470,11 +470,12 @@ public class OFMOpenstackML2Connector extends OFModule implements IOpenstackML2C
 
 		} else {
 			vPortsByGuid.put(portId, new VirtualPort(port));	// create new port
-			
+
 			if("create".equals(actionType)) {
 				OFMTunnelManager tm = new OFMTunnelManager();
 				tm.create_port_flow(port);
 			}
+			
 		}
 		
 	}
