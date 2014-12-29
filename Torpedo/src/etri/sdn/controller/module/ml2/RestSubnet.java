@@ -58,51 +58,61 @@ public class RestSubnet extends Restlet {
         Map<String, Object> sInfo = omm.readValue(sInfoJson, new TypeReference<Map<String, Object>>(){});
 
         if(sInfo != null) {
-        if(sInfo.get("name") != null) {
-        	subnet.subName = sInfo.get("name").toString();
-        }
-        if(sInfo.get("enable_dhcp") != null) {
-        	subnet.enable_dhcp = sInfo.get("enable_dhcp").toString();
-        }
-        if(sInfo.get("network_id") != null) {
-        	subnet.network_id = sInfo.get("network_id").toString();
-        }
-        if(sInfo.get("tenant_id") != null) {
-        	subnet.tenant_id = sInfo.get("tenant_id").toString();
-        }
-        if(sInfo.get("ip_version") != null) {
-        	subnet.ip_version = sInfo.get("ip_version").toString();
-        }
-        if(sInfo.get("gateway_ip") != null) {
-        	subnet.gateway_ip = sInfo.get("gateway_ip").toString();
-        }
-        if(sInfo.get("cidr") != null) {
-        	subnet.cidr = sInfo.get("cidr").toString();
-        }
-        if(sInfo.get("id") != null) {
-        	subnet.subId = sInfo.get("id").toString();
-        }
-        if(sInfo.get("ipv6_ra_mode") != null) {
-        	subnet.ipv6_ra_mode = sInfo.get("ipv6_ra_mode").toString();
-        }
-        if(sInfo.get("ipv6_address_mode") != null) {
-        	subnet.ipv6_address_mode = sInfo.get("ipv6_address_mode").toString();
-        }
-        if(sInfo.get("shared") != null) {
-        	subnet.shared = sInfo.get("shared").toString();
-        }
-        if(sInfo.get("dns_nameservers") != null) {
-        	ObjectMapper omdn = new ObjectMapper();
-        	subnet.dns_nameservers = omdn.readValue(omdn.writeValueAsString(sInfo.get("dns_nameservers")), new TypeReference<List<String>>(){});
-        }
-        if(sInfo.get("allocation_pools") != null) {
-        	ObjectMapper omap = new ObjectMapper();
-        	subnet.allocation_pools = omap.readValue(omap.writeValueAsString(sInfo.get("allocation_pools")), new TypeReference<List<Map<String, String>>>(){});
-        }
-        if(sInfo.get("host_routes") != null) {
-        	ObjectMapper omhr = new ObjectMapper();
-        	subnet.host_routes = omhr.readValue(omhr.writeValueAsString(sInfo.get("host_routes")), new TypeReference<List<String>>(){});
-        }
+			if (sInfo.get("name") != null) {
+				subnet.subName = sInfo.get("name").toString();
+			}
+			if (sInfo.get("enable_dhcp") != null) {
+				subnet.enable_dhcp = sInfo.get("enable_dhcp").toString();
+			}
+			if (sInfo.get("network_id") != null) {
+				subnet.network_id = sInfo.get("network_id").toString();
+			}
+			if (sInfo.get("tenant_id") != null) {
+				subnet.tenant_id = sInfo.get("tenant_id").toString();
+			}
+			if (sInfo.get("ip_version") != null) {
+				subnet.ip_version = sInfo.get("ip_version").toString();
+			}
+			if (sInfo.get("gateway_ip") != null) {
+				subnet.gateway_ip = sInfo.get("gateway_ip").toString();
+			}
+			if (sInfo.get("cidr") != null) {
+				subnet.cidr = sInfo.get("cidr").toString();
+			}
+			if (sInfo.get("id") != null) {
+				subnet.subId = sInfo.get("id").toString();
+			}
+			if (sInfo.get("ipv6_ra_mode") != null) {
+				subnet.ipv6_ra_mode = sInfo.get("ipv6_ra_mode").toString();
+			}
+			if (sInfo.get("ipv6_address_mode") != null) {
+				subnet.ipv6_address_mode = sInfo.get("ipv6_address_mode")
+						.toString();
+			}
+			if (sInfo.get("shared") != null) {
+				subnet.shared = sInfo.get("shared").toString();
+			}
+			if (sInfo.get("dns_nameservers") != null) {
+				ObjectMapper omdn = new ObjectMapper();
+				subnet.dns_nameservers = omdn.readValue(
+						omdn.writeValueAsString(sInfo.get("dns_nameservers")),
+						new TypeReference<List<String>>() {
+						});
+			}
+			if (sInfo.get("allocation_pools") != null) {
+				ObjectMapper omap = new ObjectMapper();
+				subnet.allocation_pools = omap.readValue(
+						omap.writeValueAsString(sInfo.get("allocation_pools")),
+						new TypeReference<List<Map<String, String>>>() {
+						});
+			}
+			if (sInfo.get("host_routes") != null) {
+				ObjectMapper omhr = new ObjectMapper();
+				subnet.host_routes = omhr.readValue(
+						omhr.writeValueAsString(sInfo.get("host_routes")),
+						new TypeReference<List<String>>() {
+						});
+			}
         }
 	}
 	

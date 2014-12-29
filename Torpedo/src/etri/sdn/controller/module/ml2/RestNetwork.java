@@ -52,35 +52,38 @@ public class RestNetwork extends Restlet {
 
 		Map<String, Object> nInfo = omm.readValue(nInfoJson, new TypeReference<Map<String, Object>>(){});
 
-		if(nInfo != null) {
-		
-		if(nInfo.get("name") != null) {
-			network.netName = nInfo.get("name").toString();
-		}
-		if(nInfo.get("provider:physical_network") != null) {
-			network.provider_physical_network = nInfo.get("provider:physical_network").toString();
-		}
-		if(nInfo.get("admin_state_up") != null) {
-			network.admin_state_up = nInfo.get("admin_state_up").toString();
-		}
-		if(nInfo.get("tenant_id") != null) {
-			network.tenant_id = nInfo.get("tenant_id").toString();
-		}
-		if(nInfo.get("provider:network_type") != null) {
-			network.provider_network_type = nInfo.get("provider:network_type").toString();
-		}
-		if(nInfo.get("router:external") != null) {
-			network.router_external = nInfo.get("router:external").toString();
-		}
-		if(nInfo.get("shared") != null) {
-			network.shared = nInfo.get("shared").toString();
-		}
-		if(nInfo.get("id") != null) {
-			network.netId = nInfo.get("id").toString();
-		}
-		if(nInfo.get("provider:segmentation_id") != null) {
-			network.provider_segmentation_id = nInfo.get("provider:segmentation_id").toString();
-		}
+		if(nInfo != null) {		
+			if (nInfo.get("name") != null) {
+				network.netName = nInfo.get("name").toString();
+			}
+			if (nInfo.get("provider:physical_network") != null) {
+				network.provider_physical_network = nInfo.get(
+						"provider:physical_network").toString();
+			}
+			if (nInfo.get("admin_state_up") != null) {
+				network.admin_state_up = nInfo.get("admin_state_up").toString();
+			}
+			if (nInfo.get("tenant_id") != null) {
+				network.tenant_id = nInfo.get("tenant_id").toString();
+			}
+			if (nInfo.get("provider:network_type") != null) {
+				network.provider_network_type = nInfo.get(
+						"provider:network_type").toString();
+			}
+			if (nInfo.get("router:external") != null) {
+				network.router_external = nInfo.get("router:external")
+						.toString();
+			}
+			if (nInfo.get("shared") != null) {
+				network.shared = nInfo.get("shared").toString();
+			}
+			if (nInfo.get("id") != null) {
+				network.netId = nInfo.get("id").toString();
+			}
+			if (nInfo.get("provider:segmentation_id") != null) {
+				network.provider_segmentation_id = nInfo.get(
+						"provider:segmentation_id").toString();
+			}
 		}
 	}
 

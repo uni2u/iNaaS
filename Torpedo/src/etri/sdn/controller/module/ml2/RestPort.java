@@ -60,63 +60,84 @@ public class RestPort extends Restlet {
 		Map<String, Object> pInfo = omm.readValue(pInfoJson, new TypeReference<Map<String, Object>>(){});
 
 		if(pInfo != null) {
-		if(pInfo.get("binding:host_id") != null) {
-			port.binding_host_id = pInfo.get("binding:host_id").toString();
-		}
-		if(pInfo.get("allowed_address_pairs") != null) {
-			ObjectMapper omaap = new ObjectMapper();
-			port.allowed_address_pairs = omaap.readValue(omaap.writeValueAsString(pInfo.get("allowed_address_pairs")), new TypeReference<List<String>>(){});
-		}
-		if(pInfo.get("extra_dhcp_opts") != null) {
-			ObjectMapper omedo = new ObjectMapper();
-			port.extra_dhcp_opts = omedo.readValue(omedo.writeValueAsString(pInfo.get("extra_dhcp_opts")), new TypeReference<List<String>>(){});
-		}
-		if(pInfo.get("device_owner") != null) {
-			port.device_owner = pInfo.get("device_owner").toString();
-		}
-		if(pInfo.get("binding:profile") != null) {
-			ObjectMapper ombp = new ObjectMapper();
-			port.binding_profile = ombp.readValue(ombp.writeValueAsString(pInfo.get("binding:profile")), new TypeReference<Map<String, String>>(){});
-		}
-		if(pInfo.get("fixed_ips") != null) {
-			ObjectMapper omfi = new ObjectMapper();
-			port.fixed_ips = omfi.readValue(omfi.writeValueAsString(pInfo.get("fixed_ips")), new TypeReference<List<Map<String, String>>>(){});
-		}
-		if(pInfo.get("id") != null) {
-			port.portId = pInfo.get("id").toString();
-		}
-		if(pInfo.get("security_groups") != null) {
-			ObjectMapper omedo = new ObjectMapper();
-			port.security_groups = omedo.readValue(omedo.writeValueAsString(pInfo.get("security_groups")), new TypeReference<List<Map<String, Object>>>(){});
-		}
-		if(pInfo.get("device_id") != null) {
-			port.device_id = pInfo.get("device_id").toString();
-		}
-		if(pInfo.get("name") != null) {
-			port.portName = pInfo.get("name").toString();
-		}
-		if(pInfo.get("admin_state_up") != null) {
-			port.admin_state_up = pInfo.get("admin_state_up").toString();
-		}
-		if(pInfo.get("network_id") != null) {
-			port.network_id = pInfo.get("network_id").toString();
-		}
-		if(pInfo.get("tenant_id") != null) {
-			port.tenant_id = pInfo.get("tenant_id").toString();
-		}
-		if(pInfo.get("mac_address") != null) {
-			port.mac_address = pInfo.get("mac_address").toString();
-		}
-		if(pInfo.get("binding:vif_details") != null) {
-			ObjectMapper ombp = new ObjectMapper();
-			port.binding_vif_details = ombp.readValue(ombp.writeValueAsString(pInfo.get("binding:vif_details")), new TypeReference<Map<String, String>>(){});
-		}
-		if(pInfo.get("binding:vnic_type") != null) {
-			port.binding_vnic_type = pInfo.get("binding:vnic_type").toString();
-		}
-		if(pInfo.get("binding:vif_type") != null) {
-			port.binding_vif_type = pInfo.get("binding:vif_type").toString();
-		}
+			if (pInfo.get("binding:host_id") != null) {
+				port.binding_host_id = pInfo.get("binding:host_id").toString();
+			}
+			if (pInfo.get("allowed_address_pairs") != null) {
+				ObjectMapper omaap = new ObjectMapper();
+				port.allowed_address_pairs = omaap.readValue(
+						omaap.writeValueAsString(pInfo
+								.get("allowed_address_pairs")),
+						new TypeReference<List<String>>() {
+						});
+			}
+			if (pInfo.get("extra_dhcp_opts") != null) {
+				ObjectMapper omedo = new ObjectMapper();
+				port.extra_dhcp_opts = omedo.readValue(
+						omedo.writeValueAsString(pInfo.get("extra_dhcp_opts")),
+						new TypeReference<List<String>>() {
+						});
+			}
+			if (pInfo.get("device_owner") != null) {
+				port.device_owner = pInfo.get("device_owner").toString();
+			}
+			if (pInfo.get("binding:profile") != null) {
+				ObjectMapper ombp = new ObjectMapper();
+				port.binding_profile = ombp.readValue(
+						ombp.writeValueAsString(pInfo.get("binding:profile")),
+						new TypeReference<Map<String, String>>() {
+						});
+			}
+			if (pInfo.get("fixed_ips") != null) {
+				ObjectMapper omfi = new ObjectMapper();
+				port.fixed_ips = omfi.readValue(
+						omfi.writeValueAsString(pInfo.get("fixed_ips")),
+						new TypeReference<List<Map<String, String>>>() {
+						});
+			}
+			if (pInfo.get("id") != null) {
+				port.portId = pInfo.get("id").toString();
+			}
+			if (pInfo.get("security_groups") != null) {
+				ObjectMapper omedo = new ObjectMapper();
+				port.security_groups = omedo.readValue(
+						omedo.writeValueAsString(pInfo.get("security_groups")),
+						new TypeReference<List<Map<String, Object>>>() {
+						});
+			}
+			if (pInfo.get("device_id") != null) {
+				port.device_id = pInfo.get("device_id").toString();
+			}
+			if (pInfo.get("name") != null) {
+				port.portName = pInfo.get("name").toString();
+			}
+			if (pInfo.get("admin_state_up") != null) {
+				port.admin_state_up = pInfo.get("admin_state_up").toString();
+			}
+			if (pInfo.get("network_id") != null) {
+				port.network_id = pInfo.get("network_id").toString();
+			}
+			if (pInfo.get("tenant_id") != null) {
+				port.tenant_id = pInfo.get("tenant_id").toString();
+			}
+			if (pInfo.get("mac_address") != null) {
+				port.mac_address = pInfo.get("mac_address").toString();
+			}
+			if (pInfo.get("binding:vif_details") != null) {
+				ObjectMapper ombp = new ObjectMapper();
+				port.binding_vif_details = ombp.readValue(ombp
+						.writeValueAsString(pInfo.get("binding:vif_details")),
+						new TypeReference<Map<String, String>>() {
+						});
+			}
+			if (pInfo.get("binding:vnic_type") != null) {
+				port.binding_vnic_type = pInfo.get("binding:vnic_type")
+						.toString();
+			}
+			if (pInfo.get("binding:vif_type") != null) {
+				port.binding_vif_type = pInfo.get("binding:vif_type")
+						.toString();
+			}
 		}
 	}
 
