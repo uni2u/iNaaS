@@ -168,6 +168,7 @@ public class RestPort extends Restlet {
 			if (port.portId == null) {
 				if(!"".equals(portUUID)) {
 					port.portId = portUUID;
+					parent.getModule().createPort(port, actionType);
 				}
 			} else
 				parent.getModule().createPort(port, actionType);

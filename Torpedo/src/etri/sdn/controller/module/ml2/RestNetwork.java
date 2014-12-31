@@ -95,7 +95,6 @@ public class RestNetwork extends Restlet {
 
 		if (m == Method.POST || m == Method.PUT) {
 			NetworkDefinition network = new NetworkDefinition();
-
 			try {			
 				jsonToNetworkDefinition(request.getEntityAsText(), network);
 			} catch (IOException e) {
@@ -108,6 +107,7 @@ public class RestNetwork extends Restlet {
 			if (network.netId == null) {
 				if(!"".equals(netUUID)) {
 					network.netId = netUUID;
+					parent.getModule().createNetwork(network);
 				}
 			} else 
 				parent.getModule().createNetwork(network);

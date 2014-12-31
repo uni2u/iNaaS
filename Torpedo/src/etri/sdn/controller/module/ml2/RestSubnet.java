@@ -136,6 +136,7 @@ public class RestSubnet extends Restlet {
 	        if (subnet.subId == null) {
 	        	if(!"".equals(subUUID)) {
 	        		subnet.subId = subUUID;
+	        		parent.getModule().createSubnet(subnet);
 		        }
 	        } else
 	        	parent.getModule().createSubnet(subnet);
