@@ -185,7 +185,7 @@ public class RestPort extends Restlet {
 			response.setStatus(Status.SUCCESS_OK);
 			
 		} else if (m == Method.DELETE) {
-			
+
 			parent.getModule().deletePort(portUUID);
 			response.setStatus(Status.SUCCESS_OK);
 			

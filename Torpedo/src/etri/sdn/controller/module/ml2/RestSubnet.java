@@ -126,7 +126,7 @@ public class RestSubnet extends Restlet {
 			SubnetDefinition subnet = new SubnetDefinition();
 			
 			try {
-				jsonToSubnetDefinition(request.getEntityAsText(), subnet);
+				jsonToSubnetDefinition(request.getEntityAsText(), subnet);		
 			} catch (IOException e) {
 				OFMOpenstackML2Connector.logger.error("RestSubnet Could not parse JSON {}", e.getMessage());
 			}
