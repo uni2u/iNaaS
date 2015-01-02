@@ -58,6 +58,7 @@ public class BasicOFController extends OFController {
 	 */
 	@Override
 	public void init() {
+		m_vxlanflowmapper_manager.init(this);
 		m_link_discovery.init(this);
 		m_topology_manager.init(this);
 		m_entity_classifier.init(this);
@@ -69,7 +70,6 @@ public class BasicOFController extends OFController {
 		m_forwarding.init(this);
 		m_staticflow.init(this);			// this is not a part of the pipeline.
 		m_netfailover.init(this);
-		m_vxlanflowmapper_manager.init(this);
 	}
 
 	@Override
