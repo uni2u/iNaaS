@@ -132,8 +132,8 @@ public class OFVxlanFlowMappingManager<K, V> extends OFModule  implements IVxlan
 	
 				if (match != null && ether.getValue() == 0x0800 && proto != null && udpdst != null &&
 						proto.getIpProtocolNumber() == 0x11 && udpdst.getPort() == vxlanPortNumber.intValue()) {
-					 
-						return this.processPacketInMessage(conn, context, (OFPacketIn) msg, outgoing, match);
+					 	
+					return this.processPacketInMessage(conn, context, (OFPacketIn) msg, outgoing, match);
 				}
 				break;
 				
@@ -344,8 +344,10 @@ public class OFVxlanFlowMappingManager<K, V> extends OFModule  implements IVxlan
 	public int getVnid(OFMessage msg) {
 		OFPacketIn  pi = (OFPacketIn) msg;
 		Ethernet etherPacket = new Ethernet();
+		etherPacket.deserialize(pi.getData(), 0, pi.getData().length);
 		
 		EthType outerEtherType = EthType.of(etherPacket.getEtherType());
+//		System.out.println ("EtherType = " + outerEtherType.getValue());
 		if (outerEtherType.getValue() != 0x0800) return -1;  //packet-in is not ip packet
 		
 		
@@ -353,6 +355,7 @@ public class OFVxlanFlowMappingManager<K, V> extends OFModule  implements IVxlan
 		IPv4 ipV4Packet = (IPv4) etherPacket.getPayload();
 		
 		IpProtocol protocol =  IpProtocol.of((short)ipV4Packet.getProtocol());
+//		System.out.println ("IpProtocol = " + protocol.getIpProtocolNumber());
 		if (protocol.getIpProtocolNumber() != 0x11) return -1;  //packet-in is not udp packet
 		
 		UDP udpPacket = (UDP) ipV4Packet.getPayload();
