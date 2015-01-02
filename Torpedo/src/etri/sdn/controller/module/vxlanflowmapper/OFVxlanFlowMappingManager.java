@@ -5,6 +5,7 @@ package etri.sdn.controller.module.vxlanflowmapper;
 import java.nio.ByteBuffer;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
@@ -28,6 +29,7 @@ import etri.sdn.controller.OFMFilter;
 import etri.sdn.controller.OFModel;
 import etri.sdn.controller.OFModule;
 import etri.sdn.controller.TorpedoProperties;
+import etri.sdn.controller.module.devicemanager.IDeviceService;
 import etri.sdn.controller.protocol.OFProtocol;
 import etri.sdn.controller.protocol.io.Connection;
 import etri.sdn.controller.protocol.packet.Ethernet;
@@ -48,10 +50,17 @@ public class OFVxlanFlowMappingManager<K, V> extends OFModule  implements IVxlan
 	private VxlanFlowMappingStorage vxlanFlowMappingStorage;
 
 	
+//	@Override
+//	protected Collection<Class<? extends IService>> services() {
+//		// no service implemented.
+//		return Collections.emptyList();
+//	}
+	
 	@Override
 	protected Collection<Class<? extends IService>> services() {
-		// no service implemented.
-		return Collections.emptyList();
+		List<Class<? extends IService>> ret = new LinkedList<Class<? extends IService>>();
+		ret.add(IVxlanFlowMappingService.class);
+		return ret;
 	}
 
 	@Override
