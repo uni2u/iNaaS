@@ -243,6 +243,8 @@ public class OFVxlanFlowMappingManager<K, V> extends OFModule  implements IVxlan
 		//ipV4Packet.deserialize(etherPayload, 0, etherPayload.length );
 		outerSrcIP =IPv4Address.of(ipV4Packet.getSourceAddress());
 		outerDstIP =IPv4Address.of(ipV4Packet.getDestinationAddress());
+		
+		
 //		
 //		System.out.println("OverlaySrcIP: " + outerSrcIP);
 //		System.out.println("OverlayDStIP: " + outerDstIP);
@@ -337,6 +339,32 @@ public class OFVxlanFlowMappingManager<K, V> extends OFModule  implements IVxlan
 	
 	public int getVnid(String srcMac, String dstMac, String srcIp, String dstIp, int srcUdpPort) {
 		return vxlanFlowMappingStorage.getVnid( srcMac,  dstMac,  srcIp,  dstIp,  srcUdpPort);
+	}
+	
+	public int getVnid(OFMessage msg) {
+		OFPacketIn  pi = (OFPacketIn) msg;
+		Ethernet etherPacket = new Ethernet();
+		
+		EthType outerEtherType = EthType.of(etherPacket.getEtherType());
+		if (outerEtherType.getValue() != 0x0800) return -1;  //packet-in is not ip packet
+		
+		
+		etherPacket.deserialize(pi.getData(), 0, pi.getData().length);
+		IPv4 ipV4Packet = (IPv4) etherPacket.getPayload();
+		
+		IpProtocol protocol =  IpProtocol.of((short)ipV4Packet.getProtocol());
+		if (protocol.getIpProtocolNumber() != 0x11) return -1;  //packet-in is not udp packet
+		
+		UDP udpPacket = (UDP) ipV4Packet.getPayload();
+		TransportPort udpDstPort = TransportPort.of(0x0000ffff & udpPacket.getDestinationPort());		
+		if (udpDstPort.getPort() != vxlanPortNumber.intValue()) return -1;  //packet-in is not vxlan packet
+		
+		IPacket udpData = udpPacket.getPayload();
+		byte[] udpPayload =udpData.serialize();
+		ByteBuffer vxlanDataBB = ByteBuffer.wrap(udpPayload);
+		vxlanDataBB.position(4);
+		Integer vnid = new Integer(vxlanDataBB.getInt()>>8);
+		return vnid.intValue();
 	}
 
 
