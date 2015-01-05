@@ -82,4 +82,16 @@ public interface IOpenstackML2ConnectorService extends IService {
 	 * @param porId The ID (not name) of virtual port to delete.
 	 */
 	public void deletePort(String porId);
+	
+	/**
+	 * VNID to NetworkID
+	 * @param vnid The ID (not name) of virtual network
+	 */
+	public String getVxlanIDtoNetwork(String vnid);
+	
+	/**
+	 * VNID to TenantID
+	 * @param vnid The ID (not name) of tenant
+	 */
+	public String getVxlanIDtoTenant(String vnid);
 }

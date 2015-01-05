@@ -124,6 +124,61 @@ public class OFMOpenstackML2Connector extends OFModule implements IOpenstackML2C
 	}
 	
 	@Override
+	public String getVxlanIDtoNetwork(String vnid) {
+		String vkey = "provider:segmentation_id";
+		String vNetId = "";
+		try {
+			
+			for (Entry<String, VirtualNetwork> entry : vNetsByGuid.entrySet()) {
+				ObjectMapper omm = new ObjectMapper();
+				String vNets = omm.writeValueAsString(entry.getValue());
+
+				Map<String, Object> vInfo = omm.readValue(vNets, new TypeReference<Map<String, Object>>() {});
+				for (Entry<String, Object> vEntry : vInfo.entrySet()) {
+					String vEntryKey = vEntry.getKey() == null ? "null" : vEntry.getKey().toString();
+					String vEntryValue = vEntry.getValue() == null ? "null" : vEntry.getValue().toString();								
+					if (vkey.equals(vEntryKey) && vnid.equals(vEntryValue)) {
+						vNetId = vInfo.get("id").toString();	
+					}
+				}
+			}
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		
+		return vNetId;
+	}
+	
+	@Override
+	public String getVxlanIDtoTenant(String vnid) {
+		
+		String vkey = "provider:segmentation_id";
+		String vTenantId = "";
+		try {
+			
+			for (Entry<String, VirtualNetwork> entry : vNetsByGuid.entrySet()) {
+				ObjectMapper omm = new ObjectMapper();
+				String vNets = omm.writeValueAsString(entry.getValue());
+
+				Map<String, Object> vInfo = omm.readValue(vNets, new TypeReference<Map<String, Object>>() {});
+				for (Entry<String, Object> vEntry : vInfo.entrySet()) {
+					String vEntryKey = vEntry.getKey() == null ? "null" : vEntry.getKey().toString();
+					String vEntryValue = vEntry.getValue() == null ? "null" : vEntry.getValue().toString();								
+					if (vkey.equals(vEntryKey) && vnid.equals(vEntryValue)) {
+						vTenantId = vInfo.get("tenant_id").toString();	
+					}
+				}
+			}
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		
+		return vTenantId;
+	}
+	
+	@Override
 	public String listNetworks(String netId, String netKey, String netValue) {
 		String listStr = "";
 
