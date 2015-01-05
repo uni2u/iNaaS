@@ -20,5 +20,6 @@
 	<classpathentry kind="lib" path="lib/openflowj-0.3.7-SNAPSHOT-sources.jar"/>
 	<classpathentry kind="lib" path="lib/openflowj-0.3.7-SNAPSHOT.jar"/>
 	<classpathentry kind="src" path="src"/>
+	<classpathentry kind="lib" path="lib/guava-18.0.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>
