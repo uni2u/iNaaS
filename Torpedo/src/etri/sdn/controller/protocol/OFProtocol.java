@@ -2,6 +2,7 @@ package etri.sdn.controller.protocol;
 
 
 import java.io.IOException;
+import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -12,12 +13,15 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentSkipListSet;
 
 import org.projectfloodlight.openflow.protocol.OFConfigFlags;
 import org.projectfloodlight.openflow.protocol.OFDescStatsReply;
 import org.projectfloodlight.openflow.protocol.OFDescStatsRequest;
 import org.projectfloodlight.openflow.protocol.OFEchoReply;
 import org.projectfloodlight.openflow.protocol.OFEchoRequest;
+import org.projectfloodlight.openflow.protocol.OFErrorMsg;
+import org.projectfloodlight.openflow.protocol.OFErrorType;
 import org.projectfloodlight.openflow.protocol.OFFactories;
 import org.projectfloodlight.openflow.protocol.OFFeaturesReply;
 import org.projectfloodlight.openflow.protocol.OFFeaturesRequest;
@@ -36,6 +40,7 @@ import org.projectfloodlight.openflow.protocol.OFPortState;
 import org.projectfloodlight.openflow.protocol.OFPortStatus;
 import org.projectfloodlight.openflow.protocol.OFSetConfig;
 import org.projectfloodlight.openflow.protocol.OFStatsReply;
+import org.projectfloodlight.openflow.protocol.OFStatsReplyFlags;
 import org.projectfloodlight.openflow.protocol.OFStatsRequest;
 import org.projectfloodlight.openflow.protocol.OFStatsRequestFlags;
 import org.projectfloodlight.openflow.protocol.OFStatsType;
@@ -43,6 +48,7 @@ import org.projectfloodlight.openflow.protocol.OFType;
 import org.projectfloodlight.openflow.protocol.OFVersion;
 import org.projectfloodlight.openflow.protocol.action.OFAction;
 import org.projectfloodlight.openflow.protocol.action.OFActionOutput;
+import org.projectfloodlight.openflow.protocol.errormsg.OFBadActionErrorMsg;
 import org.projectfloodlight.openflow.protocol.instruction.OFInstruction;
 import org.projectfloodlight.openflow.protocol.instruction.OFInstructionApplyActions;
 import org.projectfloodlight.openflow.protocol.match.Match;
@@ -64,12 +70,13 @@ import org.projectfloodlight.openflow.types.OFVlanVidMatch;
 import org.projectfloodlight.openflow.types.TableId;
 import org.projectfloodlight.openflow.types.TransportPort;
 import org.projectfloodlight.openflow.types.VlanPcp;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import etri.sdn.controller.MessageContext;
 import etri.sdn.controller.OFController;
 import etri.sdn.controller.protocol.io.Connection;
 import etri.sdn.controller.protocol.io.IOFSwitch;
-import etri.sdn.controller.util.Logger;
 
 /**
  * This class is for handling Openflow protocol handshaking.
@@ -77,6 +84,8 @@ import etri.sdn.controller.util.Logger;
  *
  */
 public class OFProtocol {
+	
+	static final Logger logger = LoggerFactory.getLogger(OFProtocol.class);
 
 	public static final String STR_IN_PORT = "in_port";
 	public static final String STR_DL_DST = "dl_dst";
@@ -108,6 +117,11 @@ public class OFProtocol {
 	 */
 	private Map<IOFSwitch, Map<Long/*xid*/, Object>> responsesCache = 
 			new ConcurrentHashMap<IOFSwitch, Map<Long, Object>>();
+	
+	/**
+	 * This field used to maintain the list of hello-failed switches.
+	 */
+	private Set<String> helloFailedSwitches = new ConcurrentSkipListSet<>();
 
 	/**
 	 * reference to OFController object.
@@ -289,15 +303,40 @@ public class OFProtocol {
 	 * @return		true if correctly handled (always)
 	 */
 	public boolean handleConnectedEvent(Connection conn) {
+		InetSocketAddress peer = null;
+		try {
+			peer = (InetSocketAddress) conn.getClient().getRemoteAddress();
+		} catch (IOException e) {
+			e.printStackTrace();
+			return false;
+		}
+		
+		if ( this.helloFailedSwitches.contains(peer.getHostString()) ) {
+			OFHello hello = OFFactories.getFactory(OFVersion.OF_10).hello(Collections.<OFHelloElem>emptyList());
+			conn.write(hello);
+			
+			this.helloFailedSwitches.remove( peer.getHostString() );
+		} else {		
+			OFHello hello = OFFactories.getFactory(OFVersion.OF_13).hello(Collections.<OFHelloElem>emptyList());
+			conn.write(hello);
+			
+			logger.debug("hello={}", hello);
+			
+			this.helloFailedSwitches.add( peer.getHostString() );
+		}
 		return true;
 	}
 
 	/**
 	 * Callback called by underlying platform when a new OFMessage is received for a connection
+	 * 
 	 * @param conn		Connection object
 	 * @param context	MessageContext object created for the message
 	 * @param m			OFMessage object to handle
-	 * @return			true of correctly handled, false otherwise
+	 * @return			true of correctly handled, false otherwise. This is an indication
+	 * 					that I/O error occurred from underlying socket layer,
+	 * 					or there is an unrecoverable error. 
+	 * 					(for example, ERROR is received.) 
 	 */
 	public boolean process(Connection conn, MessageContext context, OFMessage m) {
 		if ( !conn.isConnected() ) {
@@ -311,7 +350,7 @@ public class OFProtocol {
 		case HELLO:
 			// if HELLO received, we send features request.
 			try {
-				Logger.stderr("GOT HELLO from " + conn.getClient().getRemoteAddress().toString());
+				logger.debug("GOT HELLO({}) from {}", m, conn.getClient().getRemoteAddress().toString());
 			} catch (IOException e1) {
 				return false;
 			}
@@ -321,20 +360,32 @@ public class OFProtocol {
 				sw.setVersion(m.getVersion());
 			}
 			
-			OFHello hello = OFFactories.getFactory(m.getVersion()).hello(Collections.<OFHelloElem>emptyList());
-			conn.write(hello);
+			// now the hello is successfully exchanged, so we remove the peer address 
+			// from the helloFailedSwitches set. 
+			try {
+				InetSocketAddress peer = (InetSocketAddress) conn.getClient().getRemoteAddress();
+				this.helloFailedSwitches.remove( peer.getHostString() );
+			} catch (IOException e) {
+				logger.debug("conn.getClient().getRemoteAddress() failed");
+				e.printStackTrace();
+				return false;
+			}
 
 			// send feature request message.
 			OFFeaturesRequest freq = OFFactories.getFactory(m.getVersion()).featuresRequest();
 			conn.write(freq);
 			break;
 
-		case ERROR:
-			Logger.stderr("GET ERROR : " + m.toString());
+		case ERROR:		
+			OFErrorMsg err = (OFErrorMsg) m;
+			if ( err.getErrType() == OFErrorType.BAD_ACTION ) {
+				OFBadActionErrorMsg ba = (OFBadActionErrorMsg) err;
+				logger.error("bad action={}", ba.getData().getParsedMessage() );
+			}
+			logger.error("GET ERROR : {}", err);
 			return false;
 
 		case ECHO_REQUEST:
-			Logger.debug("ECHO_REQUEST is received");
 			OFEchoReply.Builder builder = OFFactories.getFactory(m.getVersion()).buildEchoReply();
 			builder
 			.setXid(m.getXid())
@@ -343,7 +394,7 @@ public class OFProtocol {
 			break;
 
 		case FEATURES_REPLY:
-			//Logger.debug("FEATURES_REPLY is received.");
+			logger.debug("FEATURES_REPLY is recceived: {}", m.toString());
 			
 			if ( sw == null ) return false;
 
@@ -531,8 +582,13 @@ public class OFProtocol {
 			List<OFStatsReply> rl = (List<OFStatsReply>) response;
 			synchronized ( response ) {
 				rl.add( m );
-				response.notifyAll();
+				if ( !m.getFlags().contains(OFStatsReplyFlags.REPLY_MORE) ) {
+					response.notifyAll();
+				}
 			}
+		} 
+		else {
+			logger.error("cannot deliver statistics={}", m);
 		}
 	}
 
@@ -715,7 +771,7 @@ public class OFProtocol {
 
 			// nw protocol
 			packetDataBB.position(packetDataBB.position() + 7);
-			ret.setExact(MatchField.IP_PROTO, IpProtocol.of(packetDataBB.get()));
+			ret.setExact(MatchField.IP_PROTO, IpProtocol.of(network_protocol = packetDataBB.get()));
 
 			// nw src & dst
 			packetDataBB.position(packetDataBB.position() + 2);
@@ -752,13 +808,13 @@ public class OFProtocol {
 			break;
 		case 0x06:
 			// tcp
-			ret.setExact(MatchField.TCP_SRC, TransportPort.of(packetDataBB.getShort()));
-			ret.setExact(MatchField.TCP_DST, TransportPort.of(packetDataBB.getShort()));
+			ret.setExact(MatchField.TCP_SRC, TransportPort.of(0x0000ffff & packetDataBB.getShort()));
+			ret.setExact(MatchField.TCP_DST, TransportPort.of(0x0000ffff & packetDataBB.getShort()));
 			break;
 		case 0x11:
 			// udp
-			ret.setExact(MatchField.UDP_SRC, TransportPort.of(packetDataBB.getShort()));
-			ret.setExact(MatchField.UDP_DST, TransportPort.of(packetDataBB.getShort()));
+			ret.setExact(MatchField.UDP_SRC, TransportPort.of(0x0000ffff & packetDataBB.getShort()));
+			ret.setExact(MatchField.UDP_DST, TransportPort.of(0x0000ffff & packetDataBB.getShort()));
 			break;
 		default:
 			break;
