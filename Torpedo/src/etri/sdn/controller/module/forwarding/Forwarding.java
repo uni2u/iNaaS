@@ -127,6 +127,8 @@ public class Forwarding extends ForwardingBase {
 		// If a decision has been made we obey it
 		// otherwise we just forward
 		if (decision != null) {
+//			logger.debug("Forwaring decision={} was made for PacketIn={}", 
+//					decision.getRoutingAction().toString(), pi);
 
 			switch(decision.getRoutingAction()) {
 			case NONE:
@@ -149,6 +151,7 @@ public class Forwarding extends ForwardingBase {
 				return true;
 			}
 		} else {
+//			logger.debug("No forwarding decision was made for PacketIn={}", pi);
 
 			if (eth.isBroadcast() || eth.isMulticast()) {
 				// For now we treat multicast as broadcast
