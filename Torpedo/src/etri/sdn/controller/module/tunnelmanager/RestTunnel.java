@@ -9,10 +9,11 @@ import org.restlet.Request;
 import org.restlet.Response;
 import org.restlet.Restlet;
 import org.restlet.data.Method;
-
-import etri.sdn.controller.util.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class RestTunnel extends Restlet {
+	public static final Logger logger = LoggerFactory.getLogger(RestTunnel.class);
 
 	static String nodeInfo = "/wm/tunnel/nodeInfo";
 	
@@ -47,7 +48,7 @@ public class RestTunnel extends Restlet {
 				parent.getModule().addTunnel(node_ip_mgt, node_ip_tun, node_name, node_type, iris_ip);
 				
 			} catch (IOException e) {
-				Logger.error("Could not parse JSON {}", e.getMessage());
+				logger.error("Could not parse JSON {}", e.getMessage());
 			}
 
 		}
