@@ -1,9 +1,7 @@
 package etri.sdn.controller.module.tunnelmanager;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
 import java.net.InetAddress;
+import java.net.URLEncoder;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -16,6 +14,8 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
 
+import org.codehaus.jackson.map.ObjectMapper;
+import org.codehaus.jackson.type.TypeReference;
 import org.projectfloodlight.openflow.protocol.OFFactories;
 import org.projectfloodlight.openflow.protocol.OFFactory;
 import org.projectfloodlight.openflow.protocol.OFFlowMod;
@@ -44,6 +44,7 @@ import etri.sdn.controller.MessageContext;
 import etri.sdn.controller.OFMFilter;
 import etri.sdn.controller.OFModel;
 import etri.sdn.controller.OFModule;
+import etri.sdn.controller.TorpedoProperties;
 import etri.sdn.controller.module.ml2.RestNetwork.NetworkDefinition;
 import etri.sdn.controller.module.ml2.RestPort.PortDefinition;
 import etri.sdn.controller.module.routing.IRoutingDecision;
@@ -72,9 +73,11 @@ public class OFMTunnelManager extends OFModule implements IOFMTunnelManagerServi
 	
 	private TunnelConfiguration tunConf = null;
 	
-	public static final String TUNNEL_TYPE = "vxlan";
+	TorpedoProperties sysconf = TorpedoProperties.loadConfiguration();
+	private final String TUNNEL_TYPE = sysconf.getString("tunnel-type");
+	private final String TUNNEL_PORT = sysconf.getString("vxlan-port-number");
+	private final String INAAS_AGENT_REST_PORT = sysconf.getString("iNaaSAgent-rest-port");
 	
-	private static final String OVSDB_SERVER_REMOTE_PORT = "6640";
 	private static final String INTEGRATION_BRIDGE_NAME = "br-int";
 	private static final String TUNNELING_BRIDGE_NAME = "br-tun";
 //	private static final String INT_PEER_PATCH_PORT = "patch-tun";
@@ -83,6 +86,14 @@ public class OFMTunnelManager extends OFModule implements IOFMTunnelManagerServi
 	
 	private static final int MIN_VLAN_TAG = 1;
 	private static final int MAX_VLAN_TAG = 4094;
+	
+	private static final String PATCH_LV_TO_TUN = "1";
+	private static final String GRE_TUN_TO_LV = "2";
+	private static final String VXLAN_TUN_TO_LV = "3";
+	private static final String LEARN_FROM_TUN = "10";
+	private static final String UCAST_TO_TUN = "20";
+	private static final String FLOOD_TO_TUN = "21";
+	private static final String CANARY_TABLE = "22";
 	
 	protected static Map<String, NodeDefinition> nodesByIp;
 	protected static Map<String, Long> intDpidByIp;
@@ -287,11 +298,13 @@ public class OFMTunnelManager extends OFModule implements IOFMTunnelManagerServi
 				nodeInfo.available_local_vlans = init_vlans;
 				
 				nodesByIp.put(node_ip_mgt, nodeInfo);
-				intDpidByIp.put(node_ip_mgt, TunnelOvs.get_sw_dpid(node_ip_mgt, OVSDB_SERVER_REMOTE_PORT, INTEGRATION_BRIDGE_NAME));
-				nodeIpByDpid.put(TunnelOvs.get_sw_dpid(node_ip_mgt, OVSDB_SERVER_REMOTE_PORT, INTEGRATION_BRIDGE_NAME), node_ip_mgt);
-				nodeIpByDpid.put(TunnelOvs.get_sw_dpid(node_ip_mgt, OVSDB_SERVER_REMOTE_PORT, TUNNELING_BRIDGE_NAME), node_ip_mgt);
+				long intDpid = Long.parseLong(rest_get(node_ip_mgt, INAAS_AGENT_REST_PORT, "sudo ovs-vsctl get Bridge "+INTEGRATION_BRIDGE_NAME+" datapath_id").get(0).replaceAll("\"", ""), 16);
+				long tunDpid = Long.parseLong(rest_get(node_ip_mgt, INAAS_AGENT_REST_PORT, "sudo ovs-vsctl get Bridge "+TUNNELING_BRIDGE_NAME+" datapath_id").get(0).replaceAll("\"", ""), 16);
+				intDpidByIp.put(node_ip_mgt, intDpid);
+				nodeIpByDpid.put(intDpid, node_ip_mgt);
+				nodeIpByDpid.put(tunDpid, node_ip_mgt);
 				
-				setup_bridge(node_ip_mgt, OVSDB_SERVER_REMOTE_PORT, iris_ip);
+				setup_bridge(node_ip_mgt, iris_ip);
 				
 				// tunnel create ( new node <--> exist node )
 				if(!nodesByIp.isEmpty() && nodesByIp.size() > 1) {
@@ -301,14 +314,12 @@ public class OFMTunnelManager extends OFModule implements IOFMTunnelManagerServi
 						
 						if(!remote_ip_mgt.equals(node_ip_mgt)) {
 							setup_tunnel_port(node_ip_mgt,
-									OVSDB_SERVER_REMOTE_PORT,
 									TUNNELING_BRIDGE_NAME,
 									TUNNEL_TYPE + "-" + HexString.toHexString(InetAddress.getByName(remote_ip_tun).getAddress()).replaceAll(":", ""),
 									node_ip_tun,
 									remote_ip_tun);
 							
 							setup_tunnel_port(remote_ip_mgt,
-									OVSDB_SERVER_REMOTE_PORT,
 									TUNNELING_BRIDGE_NAME,
 									TUNNEL_TYPE + "-" + HexString.toHexString(InetAddress.getByName(node_ip_tun).getAddress()).replaceAll(":", ""),
 									remote_ip_tun,
@@ -326,94 +337,82 @@ public class OFMTunnelManager extends OFModule implements IOFMTunnelManagerServi
 		}
 	}
 	
-	public void setup_bridge(String ovsdb_server_remote_ip, String ovsdb_server_remote_port, String iris_ip) {
+	public void setup_bridge(String ovsdb_server_remote_ip, String iris_ip) {
 		try {
-//			TunnelOvs.delete_bridge(ovsdb_server_remote_ip, ovsdb_server_remote_port, INTEGRATION_BRIDGE_NAME);
-//			Thread.sleep(500);
-//			TunnelOvs.delete_bridge(ovsdb_server_remote_ip, ovsdb_server_remote_port, TUNNELING_BRIDGE_NAME);
-//			Thread.sleep(500);
-//			
-//			TunnelOvs.add_bridge(ovsdb_server_remote_ip, ovsdb_server_remote_port, INTEGRATION_BRIDGE_NAME);
-//			Thread.sleep(500);
-//			TunnelOvs.set_secure_mode(ovsdb_server_remote_ip, ovsdb_server_remote_port, INTEGRATION_BRIDGE_NAME);
-//			Thread.sleep(500);
-//			TunnelOvs.add_bridge(ovsdb_server_remote_ip, ovsdb_server_remote_port, TUNNELING_BRIDGE_NAME);
-//			Thread.sleep(500);
-//			intDpidByIp.put(ovsdb_server_remote_ip, TunnelOvs.get_sw_dpid(ovsdb_server_remote_ip, ovsdb_server_remote_port, INTEGRATION_BRIDGE_NAME));
-//			
-//			TunnelOvs.add_patch_port(ovsdb_server_remote_ip, ovsdb_server_remote_port, INTEGRATION_BRIDGE_NAME, INT_PEER_PATCH_PORT, TUN_PEER_PATCH_PORT);
-//			Thread.sleep(500);
-//			String patch_int_ofport = TunnelOvs.add_patch_port(ovsdb_server_remote_ip, ovsdb_server_remote_port, TUNNELING_BRIDGE_NAME, TUN_PEER_PATCH_PORT, INT_PEER_PATCH_PORT);
-//			Thread.sleep(500);
+			String patch_int_ofport = rest_get(ovsdb_server_remote_ip, INAAS_AGENT_REST_PORT, "sudo ovs-vsctl get Interface "+TUN_PEER_PATCH_PORT+" ofport").get(0);
 			
-			String patch_int_ofport = TunnelOvs.get_port_ofport(ovsdb_server_remote_ip, ovsdb_server_remote_port, TUN_PEER_PATCH_PORT);
-			
-			TunnelOvs.disConnController(ovsdb_server_remote_ip, ovsdb_server_remote_port, INTEGRATION_BRIDGE_NAME);
+			rest_post(ovsdb_server_remote_ip, INAAS_AGENT_REST_PORT, "sudo ovs-vsctl del-controller "+INTEGRATION_BRIDGE_NAME);
 			Thread.sleep(500);
-			TunnelOvs.disConnController(ovsdb_server_remote_ip, ovsdb_server_remote_port, TUNNELING_BRIDGE_NAME);
+			rest_post(ovsdb_server_remote_ip, INAAS_AGENT_REST_PORT, "sudo ovs-vsctl del-controller "+TUNNELING_BRIDGE_NAME);
 			Thread.sleep(500);
-			TunnelOvs.connController(ovsdb_server_remote_ip, ovsdb_server_remote_port, iris_ip, INTEGRATION_BRIDGE_NAME);
+			rest_post(ovsdb_server_remote_ip, INAAS_AGENT_REST_PORT, "sudo ovs-vsctl set-controller "+INTEGRATION_BRIDGE_NAME+" tcp:"+iris_ip+":"+sysconf.getString("port-number"));
 			Thread.sleep(500);
-			TunnelOvs.connController(ovsdb_server_remote_ip, ovsdb_server_remote_port, iris_ip, TUNNELING_BRIDGE_NAME);
+			rest_post(ovsdb_server_remote_ip, INAAS_AGENT_REST_PORT, "sudo ovs-vsctl set-controller "+TUNNELING_BRIDGE_NAME+" tcp:"+iris_ip+":"+sysconf.getString("port-number"));
 			Thread.sleep(500);
 			
-//			run_cmd_rest(ovsdb_server_remote_ip, "8000", "sudo ovs-ofctl del-flows "+INTEGRATION_BRIDGE_NAME);
+//			rest_post(ovsdb_server_remote_ip, INAAS_AGENT_REST_PORT, "sudo ovs-ofctl del-flows "+INTEGRATION_BRIDGE_NAME);
 //			Thread.sleep(500);
-//			run_cmd_rest(ovsdb_server_remote_ip, "8000", "sudo ovs-ofctl del-flows "+TUNNELING_BRIDGE_NAME);
+//			rest_post(ovsdb_server_remote_ip, INAAS_AGENT_REST_PORT, "sudo ovs-ofctl del-flows "+TUNNELING_BRIDGE_NAME);
 //			Thread.sleep(500);
 			
-	        run_cmd_rest(ovsdb_server_remote_ip, "8000", "sudo ovs-ofctl add-flow "+INTEGRATION_BRIDGE_NAME+" hard_timeout=0,idle_timeout=0,priority=100,dl_type=0x88cc,actions=CONTROLLER");
+	        rest_post(ovsdb_server_remote_ip, INAAS_AGENT_REST_PORT, "sudo ovs-ofctl add-flow "+INTEGRATION_BRIDGE_NAME+" hard_timeout=0,idle_timeout=0,priority=100,dl_type=0x88cc,actions=CONTROLLER");
 	        Thread.sleep(500);
-//	        run_cmd_rest(ovsdb_server_remote_ip, "8000", "sudo ovs-ofctl add-flow "+INTEGRATION_BRIDGE_NAME+" hard_timeout=0,idle_timeout=0,priority=1,actions=normal");
-	        run_cmd_rest(ovsdb_server_remote_ip, "8000", "sudo ovs-ofctl add-flow "+INTEGRATION_BRIDGE_NAME+" hard_timeout=0,idle_timeout=0,table="+TunnelFlow.CANARY_TABLE+",priority=0,actions=drop");
+//	        rest_post(ovsdb_server_remote_ip, INAAS_AGENT_REST_PORT, "sudo ovs-ofctl add-flow "+INTEGRATION_BRIDGE_NAME+" hard_timeout=0,idle_timeout=0,priority=1,actions=normal");
+	        rest_post(ovsdb_server_remote_ip, INAAS_AGENT_REST_PORT, "sudo ovs-ofctl add-flow "+INTEGRATION_BRIDGE_NAME+" hard_timeout=0,idle_timeout=0,table="+CANARY_TABLE+",priority=0,actions=drop");
 	        Thread.sleep(500);
 	        
-			run_cmd_rest(ovsdb_server_remote_ip, "8000", "sudo ovs-ofctl add-flow "+TUNNELING_BRIDGE_NAME+" hard_timeout=0,idle_timeout=0,priority=100,dl_type=0x88cc,actions=CONTROLLER");
+			rest_post(ovsdb_server_remote_ip, INAAS_AGENT_REST_PORT, "sudo ovs-ofctl add-flow "+TUNNELING_BRIDGE_NAME+" hard_timeout=0,idle_timeout=0,priority=100,dl_type=0x88cc,actions=CONTROLLER");
 			Thread.sleep(500);
-			run_cmd_rest(ovsdb_server_remote_ip, "8000", "sudo ovs-ofctl add-flow "+TUNNELING_BRIDGE_NAME+" hard_timeout=0,idle_timeout=0,priority=1,in_port="+patch_int_ofport+",actions=resubmit(,"+TunnelFlow.PATCH_LV_TO_TUN+")");
+			rest_post(ovsdb_server_remote_ip, INAAS_AGENT_REST_PORT, "sudo ovs-ofctl add-flow "+TUNNELING_BRIDGE_NAME+" hard_timeout=0,idle_timeout=0,priority=1,in_port="+patch_int_ofport+",actions=resubmit(,"+PATCH_LV_TO_TUN+")");
 			Thread.sleep(500);
-			run_cmd_rest(ovsdb_server_remote_ip, "8000", "sudo ovs-ofctl add-flow "+TUNNELING_BRIDGE_NAME+" hard_timeout=0,idle_timeout=0,priority=0,actions=drop");
+			rest_post(ovsdb_server_remote_ip, INAAS_AGENT_REST_PORT, "sudo ovs-ofctl add-flow "+TUNNELING_BRIDGE_NAME+" hard_timeout=0,idle_timeout=0,priority=0,actions=drop");
 			Thread.sleep(500);
-			run_cmd_rest(ovsdb_server_remote_ip, "8000", "sudo ovs-ofctl add-flow "+TUNNELING_BRIDGE_NAME+" hard_timeout=0,idle_timeout=0,table="+TunnelFlow.PATCH_LV_TO_TUN+",priority=1,dl_dst=00:00:00:00:00:00/01:00:00:00:00:00,actions=resubmit(,"+TunnelFlow.UCAST_TO_TUN+")");
+			rest_post(ovsdb_server_remote_ip, INAAS_AGENT_REST_PORT, "sudo ovs-ofctl add-flow "+TUNNELING_BRIDGE_NAME+" hard_timeout=0,idle_timeout=0,table="+PATCH_LV_TO_TUN+",priority=1,dl_dst=00:00:00:00:00:00/01:00:00:00:00:00,actions=resubmit(,"+UCAST_TO_TUN+")");
 			Thread.sleep(500);
-			run_cmd_rest(ovsdb_server_remote_ip, "8000", "sudo ovs-ofctl add-flow "+TUNNELING_BRIDGE_NAME+" hard_timeout=0,idle_timeout=0,table="+TunnelFlow.PATCH_LV_TO_TUN+",priority=1,dl_dst=01:00:00:00:00:00/01:00:00:00:00:00,actions=resubmit(,"+TunnelFlow.FLOOD_TO_TUN+")");
+			rest_post(ovsdb_server_remote_ip, INAAS_AGENT_REST_PORT, "sudo ovs-ofctl add-flow "+TUNNELING_BRIDGE_NAME+" hard_timeout=0,idle_timeout=0,table="+PATCH_LV_TO_TUN+",priority=1,dl_dst=01:00:00:00:00:00/01:00:00:00:00:00,actions=resubmit(,"+FLOOD_TO_TUN+")");
 			Thread.sleep(500);
 			if("gre".equals(TUNNEL_TYPE)) {
-				run_cmd_rest(ovsdb_server_remote_ip, "8000", "sudo ovs-ofctl add-flow "+TUNNELING_BRIDGE_NAME+" hard_timeout=0,idle_timeout=0,table="+TunnelFlow.GRE_TUN_TO_LV+",priority=0,actions=drop");
+				rest_post(ovsdb_server_remote_ip, INAAS_AGENT_REST_PORT, "sudo ovs-ofctl add-flow "+TUNNELING_BRIDGE_NAME+" hard_timeout=0,idle_timeout=0,table="+GRE_TUN_TO_LV+",priority=0,actions=drop");
 				Thread.sleep(500);
 			} else if("vxlan".equals(TUNNEL_TYPE)) {
-				run_cmd_rest(ovsdb_server_remote_ip, "8000", "sudo ovs-ofctl add-flow "+TUNNELING_BRIDGE_NAME+" hard_timeout=0,idle_timeout=0,table="+TunnelFlow.VXLAN_TUN_TO_LV+",priority=0,actions=drop");
+				rest_post(ovsdb_server_remote_ip, INAAS_AGENT_REST_PORT, "sudo ovs-ofctl add-flow "+TUNNELING_BRIDGE_NAME+" hard_timeout=0,idle_timeout=0,table="+VXLAN_TUN_TO_LV+",priority=0,actions=drop");
 				Thread.sleep(500);
 			}
-			run_cmd_rest(ovsdb_server_remote_ip, "8000", "sudo ovs-ofctl add-flow "+TUNNELING_BRIDGE_NAME+" hard_timeout=0,idle_timeout=0,table="+TunnelFlow.LEARN_FROM_TUN+",priority=1,actions=learn(table="+TunnelFlow.UCAST_TO_TUN+",priority=1,hard_timeout=300,NXM_OF_VLAN_TCI[0..11],NXM_OF_ETH_DST[]=NXM_OF_ETH_SRC[],load:0->NXM_OF_VLAN_TCI[],load:NXM_NX_TUN_ID[]->NXM_NX_TUN_ID[],output:NXM_OF_IN_PORT[]),output:"+patch_int_ofport);
+			rest_post(ovsdb_server_remote_ip, INAAS_AGENT_REST_PORT, "sudo ovs-ofctl add-flow "+TUNNELING_BRIDGE_NAME+" hard_timeout=0,idle_timeout=0,table="+LEARN_FROM_TUN+",priority=1,actions=learn(table="+UCAST_TO_TUN+",priority=1,hard_timeout=300,NXM_OF_VLAN_TCI[0..11],NXM_OF_ETH_DST[]=NXM_OF_ETH_SRC[],load:0->NXM_OF_VLAN_TCI[],load:NXM_NX_TUN_ID[]->NXM_NX_TUN_ID[],output:NXM_OF_IN_PORT[]),output:"+patch_int_ofport);
 			Thread.sleep(500);
-			run_cmd_rest(ovsdb_server_remote_ip, "8000", "sudo ovs-ofctl add-flow "+TUNNELING_BRIDGE_NAME+" hard_timeout=0,idle_timeout=0,table="+TunnelFlow.UCAST_TO_TUN+",priority=0,actions=resubmit(,"+TunnelFlow.FLOOD_TO_TUN+")");
+			rest_post(ovsdb_server_remote_ip, INAAS_AGENT_REST_PORT, "sudo ovs-ofctl add-flow "+TUNNELING_BRIDGE_NAME+" hard_timeout=0,idle_timeout=0,table="+UCAST_TO_TUN+",priority=0,actions=resubmit(,"+FLOOD_TO_TUN+")");
 			Thread.sleep(500);
-			run_cmd_rest(ovsdb_server_remote_ip, "8000", "sudo ovs-ofctl add-flow "+TUNNELING_BRIDGE_NAME+" hard_timeout=0,idle_timeout=0,table="+TunnelFlow.FLOOD_TO_TUN+",priority=0,actions=drop");
+			rest_post(ovsdb_server_remote_ip, INAAS_AGENT_REST_PORT, "sudo ovs-ofctl add-flow "+TUNNELING_BRIDGE_NAME+" hard_timeout=0,idle_timeout=0,table="+FLOOD_TO_TUN+",priority=0,actions=drop");
 		} catch(Exception e) {
 			logger.error("Unable to setup_bridge. Exception:  {}", e.getMessage());
 		}
 	}
 	
-	public void setup_tunnel_port(String ovsdb_server_remote_ip, String ovsdb_server_remote_port, String bridge_name, String port_name, String local_ip_tun, String remote_ip_tun) {
-		String ofport = TunnelOvs.add_tunnel_port(ovsdb_server_remote_ip, ovsdb_server_remote_port, bridge_name, port_name, local_ip_tun, remote_ip_tun);
-		
-		run_cmd_rest(ovsdb_server_remote_ip, "8000", "sudo ovs-ofctl add-flow "+TUNNELING_BRIDGE_NAME+" hard_timeout=0,idle_timeout=0,priority=1,in_port="+ofport+",actions=resubmit(,"+TunnelFlow.VXLAN_TUN_TO_LV+")");
-		
-		if(nodesByIp.get(ovsdb_server_remote_ip).local_vlan_ofports == null) {
-			nodesByIp.get(ovsdb_server_remote_ip).local_vlan_ofports = new ArrayList<String>();
+	public void setup_tunnel_port(String ovsdb_server_remote_ip, String bridge_name, String port_name, String local_ip_tun, String remote_ip_tun) {
+		try {
+			rest_post(ovsdb_server_remote_ip, INAAS_AGENT_REST_PORT, "sudo ovs-vsctl add-port "+bridge_name+" "+port_name+" -- set Interface "+port_name+" type="+TUNNEL_TYPE+" options:in_key=flow options:local_ip="+local_ip_tun+" options:out_key=flow options:remote_ip="+remote_ip_tun+" options:dst_port="+TUNNEL_PORT);
+			Thread.sleep(500);
+			String ofport = rest_get(ovsdb_server_remote_ip, INAAS_AGENT_REST_PORT, "sudo ovs-vsctl get Interface "+port_name+" ofport").get(0);
+			
+			rest_post(ovsdb_server_remote_ip, INAAS_AGENT_REST_PORT, "sudo ovs-ofctl add-flow "+TUNNELING_BRIDGE_NAME+" hard_timeout=0,idle_timeout=0,priority=1,in_port="+ofport+",actions=resubmit(,"+VXLAN_TUN_TO_LV+")");
+			
+			if(nodesByIp.get(ovsdb_server_remote_ip).local_vlan_ofports == null) {
+				nodesByIp.get(ovsdb_server_remote_ip).local_vlan_ofports = new ArrayList<String>();
+			}
+			nodesByIp.get(ovsdb_server_remote_ip).local_vlan_ofports.add(ofport);
+			
+			// change sync true
+			nodesByIp.get(ovsdb_server_remote_ip).flow_sync = true;
+		} catch(Exception e) {
+			logger.error("Unable to setup_tunnel_port. Exception:  {}", e.getMessage());
 		}
-		nodesByIp.get(ovsdb_server_remote_ip).local_vlan_ofports.add(ofport);
-		
-		// change sync true
-		nodesByIp.get(ovsdb_server_remote_ip).flow_sync = true;
 	}
 	
-	public void run_cmd_rest(String node_ip, String node_port, String command) {
-		logger.debug("ofctl_command({}) : {}", node_ip, command);
+	public void rest_post(String node_ip, String node_port, String command) {
+		logger.debug("rest_post({}:{}) : {}", node_ip, node_port, command);
 		
 		try {
-			String restUri = "http://" + node_ip + ":" + node_port + "/wm/tunnel/flow";
+			String restUri = "http://" + node_ip + ":" + node_port + "/wm/tunnel/iNaaSAgent";
 			
 			ClientResource resource = new ClientResource(restUri);
 			resource.setMethod(Method.POST);
@@ -422,12 +421,35 @@ public class OFMTunnelManager extends OFModule implements IOFMTunnelManagerServi
 			StringRepresentation stringRep = new StringRepresentation(command);
 			stringRep.setMediaType(MediaType.APPLICATION_JSON);
 			
-			resource.post(stringRep).write(System.out);
-		} catch(IOException e) {
+			resource.post(stringRep);
+		} catch(Exception e) {
+			logger.error("========== Method Name : rest_post(String node_ip, String node_port, String command) ==========");
 			e.printStackTrace();
 		}
 	}
 	
+	public ArrayList<String> rest_get(String node_ip, String node_port, String command) {
+		logger.debug("rest_get({}:{}) : {}", node_ip, node_port, command);
+		
+		ArrayList<String> returnVal = new ArrayList<String>();
+		
+		try {
+			String restUri = "http://" + node_ip + ":" + node_port + "/wm/tunnel/iNaaSAgent";
+			
+			ClientResource resource = new ClientResource(restUri+"/"+URLEncoder.encode(command, "UTF-8"));
+			resource.setMethod(Method.GET);
+			resource.get();
+			
+			ObjectMapper om = new ObjectMapper();
+			returnVal = om.readValue(resource.getResponse().getEntityAsText(), new TypeReference<ArrayList<String>>(){});
+			
+		} catch(Exception e) {
+			logger.error("========== Method Name : rest_get(String node_ip, String node_port, String command) ==========");
+			e.printStackTrace();
+		}
+		
+		return returnVal;
+	}
 	
 	public void create_network_flow(NetworkDefinition network) {
 		vNetsByGuid.put(network.netId, network);
@@ -468,7 +490,7 @@ public class OFMTunnelManager extends OFModule implements IOFMTunnelManagerServi
 
 				String tun_id = "0x"+Integer.toHexString(Integer.parseInt(network.provider_segmentation_id)).toString();
 
-				run_cmd_rest(network_node_ip, "8000", "sudo ovs-ofctl add-flow "+TUNNELING_BRIDGE_NAME+" hard_timeout=0,idle_timeout=0,table="+TunnelFlow.VXLAN_TUN_TO_LV+",priority=1,tun_id="+tun_id+",actions=mod_vlan_vid:"+mod_vlan_vid+",resubmit(,"+TunnelFlow.LEARN_FROM_TUN+")");
+				rest_post(network_node_ip, INAAS_AGENT_REST_PORT, "sudo ovs-ofctl add-flow "+TUNNELING_BRIDGE_NAME+" hard_timeout=0,idle_timeout=0,table="+VXLAN_TUN_TO_LV+",priority=1,tun_id="+tun_id+",actions=mod_vlan_vid:"+mod_vlan_vid+",resubmit(,"+LEARN_FROM_TUN+")");
 				
 				// change sync true
 				nodesByIp.get(network_node_ip).flow_sync = true;
@@ -490,10 +512,10 @@ public class OFMTunnelManager extends OFModule implements IOFMTunnelManagerServi
 					String segmentation_id = nodesByIp.get(entry.getKey()).used_local_vNetsByGuid.get(network_id).provider_segmentation_id;
 					String tun_id = "0x"+Integer.toHexString(Integer.parseInt(segmentation_id)).toString();
 					
-					logger.debug("delFlow(delete_network_flow) : IP - {}, FLOW - {}", entry.getKey(), "sudo ovs-ofctl del-flows "+TUNNELING_BRIDGE_NAME+" table="+TunnelFlow.FLOOD_TO_TUN+",dl_vlan="+vlan_id);
-					run_cmd_rest(entry.getKey(), "8000", "sudo ovs-ofctl del-flows "+TUNNELING_BRIDGE_NAME+" table="+TunnelFlow.FLOOD_TO_TUN+",dl_vlan="+vlan_id);
-					logger.debug("delFlow(delete_network_flow) : IP - {}, FLOW - {}", entry.getKey(), "sudo ovs-ofctl del-flows "+TUNNELING_BRIDGE_NAME+" table="+TunnelFlow.VXLAN_TUN_TO_LV+",tun_id="+tun_id);
-					run_cmd_rest(entry.getKey(), "8000", "sudo ovs-ofctl del-flows "+TUNNELING_BRIDGE_NAME+" table="+TunnelFlow.VXLAN_TUN_TO_LV+",tun_id="+tun_id);
+					logger.debug("delFlow(delete_network_flow) : IP - {}, FLOW - {}", entry.getKey(), "sudo ovs-ofctl del-flows "+TUNNELING_BRIDGE_NAME+" table="+FLOOD_TO_TUN+",dl_vlan="+vlan_id);
+					rest_post(entry.getKey(), INAAS_AGENT_REST_PORT, "sudo ovs-ofctl del-flows "+TUNNELING_BRIDGE_NAME+" table="+FLOOD_TO_TUN+",dl_vlan="+vlan_id);
+					logger.debug("delFlow(delete_network_flow) : IP - {}, FLOW - {}", entry.getKey(), "sudo ovs-ofctl del-flows "+TUNNELING_BRIDGE_NAME+" table="+VXLAN_TUN_TO_LV+",tun_id="+tun_id);
+					rest_post(entry.getKey(), INAAS_AGENT_REST_PORT, "sudo ovs-ofctl del-flows "+TUNNELING_BRIDGE_NAME+" table="+VXLAN_TUN_TO_LV+",tun_id="+tun_id);
 					
 					nodesByIp.get(entry.getKey()).available_local_vlans.add(Integer.parseInt(vlan_id));
 					nodesByIp.get(entry.getKey()).used_local_vNetsByVlanid.remove(vlan_id);
@@ -565,7 +587,7 @@ public class OFMTunnelManager extends OFModule implements IOFMTunnelManagerServi
 	
 						String tun_id = "0x"+Integer.toHexString(Integer.parseInt(vNetsByGuid.get(port.network_id).provider_segmentation_id)).toString();
 	
-						run_cmd_rest(compute_node_ip, "8000", "sudo ovs-ofctl add-flow "+TUNNELING_BRIDGE_NAME+" hard_timeout=0,idle_timeout=0,table="+TunnelFlow.VXLAN_TUN_TO_LV+",priority=1,tun_id="+tun_id+",actions=mod_vlan_vid:"+mod_vlan_vid+",resubmit(,"+TunnelFlow.LEARN_FROM_TUN+")");
+						rest_post(compute_node_ip, INAAS_AGENT_REST_PORT, "sudo ovs-ofctl add-flow "+TUNNELING_BRIDGE_NAME+" hard_timeout=0,idle_timeout=0,table="+VXLAN_TUN_TO_LV+",priority=1,tun_id="+tun_id+",actions=mod_vlan_vid:"+mod_vlan_vid+",resubmit(,"+LEARN_FROM_TUN+")");
 					}
 					
 					if(nodesByIp.get(compute_node_ip).used_local_vPortsByGuid == null) {
@@ -628,10 +650,10 @@ public class OFMTunnelManager extends OFModule implements IOFMTunnelManagerServi
 				}
 				
 				if(nodesByIp.get(compute_node_ip).used_local_vPortsByGuid == null || nodesByIp.get(compute_node_ip).used_local_vPortsByGuid.isEmpty()) {
-					logger.debug("delFlow(delete_port_flow) : IP - {}, FLOW - {}", compute_node_ip, "sudo ovs-ofctl del-flows "+TUNNELING_BRIDGE_NAME+" table="+TunnelFlow.FLOOD_TO_TUN+",dl_vlan="+vlan_id);
-					run_cmd_rest(compute_node_ip, "8000", "sudo ovs-ofctl del-flows "+TUNNELING_BRIDGE_NAME+" table="+TunnelFlow.FLOOD_TO_TUN+",dl_vlan="+vlan_id);
-					logger.debug("delFlow(delete_port_flow) : IP - {}, FLOW - {}", compute_node_ip, "sudo ovs-ofctl del-flows "+TUNNELING_BRIDGE_NAME+" table="+TunnelFlow.VXLAN_TUN_TO_LV+",tun_id="+tun_id);
-					run_cmd_rest(compute_node_ip, "8000", "sudo ovs-ofctl del-flows "+TUNNELING_BRIDGE_NAME+" table="+TunnelFlow.VXLAN_TUN_TO_LV+",tun_id="+tun_id);
+					logger.debug("delFlow(delete_port_flow) : IP - {}, FLOW - {}", compute_node_ip, "sudo ovs-ofctl del-flows "+TUNNELING_BRIDGE_NAME+" table="+FLOOD_TO_TUN+",dl_vlan="+vlan_id);
+					rest_post(compute_node_ip, INAAS_AGENT_REST_PORT, "sudo ovs-ofctl del-flows "+TUNNELING_BRIDGE_NAME+" table="+FLOOD_TO_TUN+",dl_vlan="+vlan_id);
+					logger.debug("delFlow(delete_port_flow) : IP - {}, FLOW - {}", compute_node_ip, "sudo ovs-ofctl del-flows "+TUNNELING_BRIDGE_NAME+" table="+VXLAN_TUN_TO_LV+",tun_id="+tun_id);
+					rest_post(compute_node_ip, INAAS_AGENT_REST_PORT, "sudo ovs-ofctl del-flows "+TUNNELING_BRIDGE_NAME+" table="+VXLAN_TUN_TO_LV+",tun_id="+tun_id);
 					
 					nodesByIp.get(compute_node_ip).available_local_vlans.add(Integer.parseInt(vlan_id));
 					nodesByIp.get(compute_node_ip).used_local_vNetsByVlanid.remove(vlan_id);
@@ -647,7 +669,6 @@ public class OFMTunnelManager extends OFModule implements IOFMTunnelManagerServi
 			for(Entry<String, NodeDefinition> entry : nodesByIp.entrySet()) {
 				if(entry.getValue().flow_sync) {
 					if(nodesByIp.get(entry.getKey()).local_vlan_ofports != null) {
-						// sync mod_flow(table=FLOOD_TO_TUN, dl_vlan=vlan_mapping.vlan, actions="strip_vlan," "set_tunnel:%s,output:%s" % (vlan_mapping.segmentation_id, ofports));
 						String ofports = "";
 						for(int i = 0 ; i < nodesByIp.get(entry.getKey()).local_vlan_ofports.size() ; i++) {
 							if(i == 0) {
@@ -664,17 +685,17 @@ public class OFMTunnelManager extends OFModule implements IOFMTunnelManagerServi
 								String vlan_id = vlanMap.getKey().toString();
 								
 								if("".equals(ofports)) {
-									logger.debug("delFlow(syncTunnel) : IP - {}, FLOW - {}", entry.getKey(), "sudo ovs-ofctl del-flows "+TUNNELING_BRIDGE_NAME+" table="+TunnelFlow.FLOOD_TO_TUN+",dl_vlan="+vlan_id);
-									run_cmd_rest(entry.getKey(), "8000", "sudo ovs-ofctl del-flows "+TUNNELING_BRIDGE_NAME+" table="+TunnelFlow.FLOOD_TO_TUN+",dl_vlan="+vlan_id);
-									logger.debug("delFlow(syncTunnel) : IP - {}, FLOW - {}", entry.getKey(), "sudo ovs-ofctl del-flows "+TUNNELING_BRIDGE_NAME+" table="+TunnelFlow.VXLAN_TUN_TO_LV+",tun_id="+tun_id);
-									run_cmd_rest(entry.getKey(), "8000", "sudo ovs-ofctl del-flows "+TUNNELING_BRIDGE_NAME+" table="+TunnelFlow.VXLAN_TUN_TO_LV+",tun_id="+tun_id);
+									logger.debug("delFlow(syncTunnel) : IP - {}, FLOW - {}", entry.getKey(), "sudo ovs-ofctl del-flows "+TUNNELING_BRIDGE_NAME+" table="+FLOOD_TO_TUN+",dl_vlan="+vlan_id);
+									rest_post(entry.getKey(), INAAS_AGENT_REST_PORT, "sudo ovs-ofctl del-flows "+TUNNELING_BRIDGE_NAME+" table="+FLOOD_TO_TUN+",dl_vlan="+vlan_id);
+									logger.debug("delFlow(syncTunnel) : IP - {}, FLOW - {}", entry.getKey(), "sudo ovs-ofctl del-flows "+TUNNELING_BRIDGE_NAME+" table="+VXLAN_TUN_TO_LV+",tun_id="+tun_id);
+									rest_post(entry.getKey(), INAAS_AGENT_REST_PORT, "sudo ovs-ofctl del-flows "+TUNNELING_BRIDGE_NAME+" table="+VXLAN_TUN_TO_LV+",tun_id="+tun_id);
 									
 									nodesByIp.get(entry.getKey()).available_local_vlans.add(Integer.parseInt(vlan_id));
 									nodesByIp.get(entry.getKey()).used_local_vNetsByVlanid.remove(vlan_id);
 									nodesByIp.get(entry.getKey()).used_local_vNetsByGuid.remove(network_id);
 									nodesByIp.get(entry.getKey()).local_vNetidToVlanid.remove(network_id);
 								} else {
-									run_cmd_rest(entry.getKey(), "8000", "sudo ovs-ofctl add-flow "+TUNNELING_BRIDGE_NAME+" table="+TunnelFlow.FLOOD_TO_TUN+",dl_vlan="+vlan_id+",actions=strip_vlan,set_tunnel:"+tun_id+",output:"+ofports);
+									rest_post(entry.getKey(), INAAS_AGENT_REST_PORT, "sudo ovs-ofctl add-flow "+TUNNELING_BRIDGE_NAME+" table="+FLOOD_TO_TUN+",dl_vlan="+vlan_id+",actions=strip_vlan,set_tunnel:"+tun_id+",output:"+ofports);
 								}
 							}
 						}
@@ -690,7 +711,6 @@ public class OFMTunnelManager extends OFModule implements IOFMTunnelManagerServi
 						int successCnt = 0;
 						
 						for(Entry<String, PortDefinition> localPortMap : nodesByIp.get(entry.getKey()).used_local_vPortsByGuid.entrySet()) {
-//							String port_name = "";
 							String tag = "";
 							if(nodesByIp.get(entry.getKey()).local_vNetidToVlanid != null && localPortMap.getValue().network_id != null) {
 								if(nodesByIp.get(entry.getKey()).local_vNetidToVlanid.containsKey(localPortMap.getValue().network_id)) {
@@ -698,35 +718,15 @@ public class OFMTunnelManager extends OFModule implements IOFMTunnelManagerServi
 								}
 							}
 							
-//							if("compute:nova".equals(localPortMap.getValue().device_owner) || "network:dhcp".equals(localPortMap.getValue().device_owner)) {
-//								port_name = "tap" + localPortMap.getValue().portId.substring(0,11);
-//							} else if("network:router_interface".equals(localPortMap.getValue().device_owner)) {
-//								port_name = "qr-" + localPortMap.getValue().portId.substring(0,11);
-//							}
-							
-//							if(!"".equals(port_name) && !"".equals(tag)) {
 							if(localPortMap.getValue().portId != null && !"".equals(localPortMap.getValue().portId) && !"".equals(tag)) {
 								try {
-									Process getTagListProcess = Runtime.getRuntime().exec("sudo ovs-vsctl --db=tcp:"+entry.getKey()+":"+OVSDB_SERVER_REMOTE_PORT +" list-ports "+INTEGRATION_BRIDGE_NAME);
-									getTagListProcess.waitFor();
-									
-									BufferedReader br = new BufferedReader(new InputStreamReader(getTagListProcess.getInputStream()));
-									String line = null;
-									
-									while((line = br.readLine()) != null) {
-										String readPortNamae = line;
-//										if(port_name.equals(readPortNamae)) {
-										if(localPortMap.getValue().portId.substring(0,11).equals(readPortNamae.substring(3))) {
-											String setTagCommand = "sudo ovs-vsctl --db=tcp:"+entry.getKey()+":"+OVSDB_SERVER_REMOTE_PORT +" set Port "+readPortNamae+" tag="+tag;
-
-											Process setTagProcess = Runtime.getRuntime().exec(setTagCommand);
-											setTagProcess.waitFor();
-
+									for(String readPortName : rest_get(entry.getKey(), INAAS_AGENT_REST_PORT, "sudo ovs-vsctl list-ports "+INTEGRATION_BRIDGE_NAME)) {
+										if(localPortMap.getValue().portId.substring(0,11).equals(readPortName.substring(3))) {
+											rest_post(entry.getKey(), INAAS_AGENT_REST_PORT, "sudo ovs-vsctl set Port "+readPortName+" tag="+tag);
+											
 											successCnt++;
 										}
 									}
-									
-									
 								} catch(Exception e) {
 									logger.error("Unable to sync tag. \n Exception: {}", e.getMessage());
 								}
@@ -766,13 +766,13 @@ public class OFMTunnelManager extends OFModule implements IOFMTunnelManagerServi
 						}
 						
 						for(Entry<String, NodeDefinition> deleteEntry : nodesByIp.entrySet()) {
-							String in_port = TunnelOvs.get_port_ofport(deleteEntry.getKey(), OVSDB_SERVER_REMOTE_PORT, delTunName);
+							String in_port = rest_get(deleteEntry.getKey(), INAAS_AGENT_REST_PORT, "sudo ovs-vsctl get Interface "+delTunName+" ofport").get(0);
 							
 							logger.debug("delTunnelPort : {}", delTunName);
-							Runtime.getRuntime().exec("sudo ovs-vsctl --db=tcp:"+deleteEntry.getKey()+":"+OVSDB_SERVER_REMOTE_PORT+" del-port "+TUNNELING_BRIDGE_NAME+" " + delTunName);
+							rest_post(deleteEntry.getKey(), INAAS_AGENT_REST_PORT, "sudo ovs-vsctl del-port "+TUNNELING_BRIDGE_NAME+" "+delTunName);
 							
 							logger.debug("delFlow(delTunnel) : IP - {}, FLOW - {}", deleteEntry.getKey(), "sudo ovs-ofctl del-flows "+TUNNELING_BRIDGE_NAME+" in_port="+in_port);
-							run_cmd_rest(deleteEntry.getKey(), "8000", "sudo ovs-ofctl del-flows "+TUNNELING_BRIDGE_NAME+" in_port="+in_port);
+							rest_post(deleteEntry.getKey(), INAAS_AGENT_REST_PORT, "sudo ovs-ofctl del-flows "+TUNNELING_BRIDGE_NAME+" in_port="+in_port);
 							
 							if(nodesByIp.get(deleteEntry.getKey()).local_vlan_ofports != null) {
 								nodesByIp.get(deleteEntry.getKey()).local_vlan_ofports.remove(in_port);
