@@ -451,7 +451,7 @@ public class OFMOpenstackML2Connector extends OFModule implements IOpenstackML2C
 				int cnt = 0;
 				for(Entry<String, VirtualPort> entry : vPortsByGuid.entrySet()) {
 					ObjectMapper omm = new ObjectMapper();
-					String jsonStr = omm.writeValueAsString(entry.getValue());
+					String jsonStr = omm.writeValueAsString(entry.getValue() == null ? "" : entry.getValue());
 					
 					if(!"".equals(portKey)) {
 						Map<String, Object> vInfo = omm.readValue(jsonStr, new TypeReference<Map<String, Object>>(){});
