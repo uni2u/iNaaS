@@ -445,7 +445,7 @@ public class OFMOpenstackML2Connector extends OFModule implements IOpenstackML2C
 			if(!"".equals(portId)) {
 
 				ObjectMapper omp = new ObjectMapper();
-				listStr = "{\"port\":" + omp.writeValueAsString(vPortsByGuid.get(portId)) + "}";
+				listStr = "{\"port\":" + omp.writeValueAsString(vPortsByGuid.get(portId) == null ? "" : vPortsByGuid.get(portId)) + "}";
 
 			} else {
 				int cnt = 0;
