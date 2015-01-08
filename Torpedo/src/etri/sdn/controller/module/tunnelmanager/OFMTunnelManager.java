@@ -745,16 +745,21 @@ public class OFMTunnelManager extends OFModule implements IOFMTunnelManagerServi
 	public void delTunnel() {
 		Date now = new Date(System.currentTimeMillis()); 
 		SimpleDateFormat simpledateformat = new SimpleDateFormat("yyyyMMddHHmm");
-		Long current_time = Long.parseLong(simpledateformat.format(now));
+		String current_time = simpledateformat.format(now);
 		
 		try {
 			if(!nodesByIp.isEmpty()) {
 				for(Entry<String, NodeDefinition> entry : nodesByIp.entrySet()) {
-					Long existing_time = Long.parseLong(entry.getValue().current_time);
-					Long time_gap = current_time - existing_time;
+					String existing_time = entry.getValue().current_time;
+					Long time_gap = (simpledateformat.parse(current_time).getTime() - simpledateformat.parse(existing_time).getTime()) / 60000;
 					
+System.out.println("========================================");
+System.out.println(">>> IP : " + entry.getKey());
+System.out.println(">>> existing_time : " + existing_time);
+System.out.println(">>> current_time : " + current_time);
+System.out.println(">>> time_gap : " + time_gap);
+System.out.println("========================================");
 					if(time_gap >= DELETE_TIME_GAP) {
-//						String delTunName = TUNNEL_TYPE + "-" + HexString.toHexString(InetAddress.getByName(entry.getKey()).getAddress()).replaceAll(":", "");
 						String delTunName = TUNNEL_TYPE + "-" + HexString.toHexString(InetAddress.getByName(entry.getValue().node_ip_tun).getAddress()).replaceAll(":", "");
 						
 						nodesByIp.remove(entry.getKey());

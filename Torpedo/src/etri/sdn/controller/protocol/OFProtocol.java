@@ -537,6 +537,18 @@ public class OFProtocol {
 				return false;
 			}
 			break;
+			
+		case FLOW_REMOVED:
+			if ( sw.getStringId() == null ) {
+				// FEATURES_REPLY is not received.
+				// added shkang
+				return false;
+			}
+
+			if ( !getController().handlePacketIn(conn, context, m) ) {
+				return false;
+			}
+			break;
 
 		default:
 			if ( !getController().handleGeneric(conn, context, m) ) {
