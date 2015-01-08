@@ -754,7 +754,8 @@ public class OFMTunnelManager extends OFModule implements IOFMTunnelManagerServi
 					Long time_gap = current_time - existing_time;
 					
 					if(time_gap >= DELETE_TIME_GAP) {
-						String delTunName = TUNNEL_TYPE + "-" + HexString.toHexString(InetAddress.getByName(entry.getKey()).getAddress()).replaceAll(":", "");
+//						String delTunName = TUNNEL_TYPE + "-" + HexString.toHexString(InetAddress.getByName(entry.getKey()).getAddress()).replaceAll(":", "");
+						String delTunName = TUNNEL_TYPE + "-" + HexString.toHexString(InetAddress.getByName(entry.getValue().node_ip_tun).getAddress()).replaceAll(":", "");
 						
 						nodesByIp.remove(entry.getKey());
 						intDpidByIp.remove(entry.getKey());
