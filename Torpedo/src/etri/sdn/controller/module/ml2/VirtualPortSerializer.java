@@ -35,6 +35,8 @@ public class VirtualPortSerializer extends JsonSerializer<VirtualPort> {
 			}
 		jGen.writeEndObject();
 		jGen.writeArrayFieldStart("fixed_ips");
+		
+		if (vPort.fixed_ips != null) {
 			for (Map<String, String> fiMap : vPort.fixed_ips) {
 				jGen.writeStartObject();
 				for (Entry<String, String> entry : fiMap.entrySet()) {
@@ -42,6 +44,7 @@ public class VirtualPortSerializer extends JsonSerializer<VirtualPort> {
 				}
 				jGen.writeEndObject();
 			}
+		}
 		jGen.writeEndArray();
 		jGen.writeStringField("id", vPort.portId);
 		jGen.writeArrayFieldStart("security_groups");
