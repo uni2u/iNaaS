@@ -152,7 +152,7 @@ public class OFMTunnelManager extends OFModule implements IOFMTunnelManagerServi
 					}
 				}, 
 				0,
-				5 * 1000 /* milliseconds */
+				1 * 1000 /* milliseconds */
 				);
 		
 		this.controller.scheduleTask(
