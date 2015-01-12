@@ -161,6 +161,7 @@ public class OFMiNaaSTopoManager extends OFModule implements IOFMiNaaSTopoManage
 			if(deviceEntry.getIPv4Addresses().length > 0) {
 				String host_ip = IPv4.fromIPv4Address(deviceEntry.getIPv4Addresses()[0]);
 				String host_name = tunnelManager.getNodeInfo().containsKey(host_ip) ? tunnelManager.getNodeInfo().get(host_ip).node_name : tunnelManager.getHostName(host_ip);
+				String host_mac = deviceEntry.getMACAddressString();
 				
 				if(!tunnelManager.getVmByIp().containsKey(host_ip)) {
 					if(hostCnt == 0) {
@@ -170,6 +171,7 @@ public class OFMiNaaSTopoManager extends OFModule implements IOFMiNaaSTopoManage
 					}
 					hostlist.append("\"host_ip\":\""+host_ip+"\",");
 					hostlist.append("\"host_name\":\""+host_name+"\",");
+					hostlist.append("\"mac\":\""+host_mac+"\",");
 					if(deviceEntry.getAttachmentPoints().length > 0) {
 						hostlist.append("\"connected_sw\":\""+HexString.toHexString(deviceEntry.getAttachmentPoints()[0].getSwitchDPID())+"\",");
 						hostlist.append("\"connected_port\":"+deviceEntry.getAttachmentPoints()[0].getPort().getPortNumber());
