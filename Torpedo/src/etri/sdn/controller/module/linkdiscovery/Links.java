@@ -19,6 +19,7 @@ import org.projectfloodlight.openflow.protocol.OFPortDesc;
 import org.projectfloodlight.openflow.protocol.OFPortState;
 import org.projectfloodlight.openflow.protocol.OFPortStatus;
 import org.projectfloodlight.openflow.types.OFPort;
+import org.projectfloodlight.openflow.util.HexString;
 import org.restlet.Request;
 import org.restlet.Response;
 import org.restlet.Restlet;
@@ -26,6 +27,7 @@ import org.restlet.data.MediaType;
 
 import etri.sdn.controller.OFModel;
 import etri.sdn.controller.module.linkdiscovery.ILinkDiscoveryListener.UpdateOperation;
+import etri.sdn.controller.protocol.io.IOFSwitch;
 import etri.sdn.controller.protocol.rest.serializer.OFTypeSerializerModule;
 
 /**
@@ -79,6 +81,10 @@ public class Links extends OFModel {
 	 */
 	public Links(OFMLinkDiscovery manager) {
 		this.manager = manager;
+	}
+	
+	public Map<Link, LinkInfo> getLinks() {
+		return links;
 	}
 	
 	/** 
@@ -657,6 +663,61 @@ public class Links extends OFModel {
 			}
 		),
 		
+		new RESTApi(
+				"/wm/topology/prettylinks/json",
+				new Restlet() {
+					@Override
+					public void handle(Request request, Response response) {
+						// create an object mapper.
+						ObjectMapper om = new ObjectMapper();
+						om.registerModule(new OFTypeSerializerModule());
+
+						// retrieve all link information as JSON.
+						List<PrettyLink> switchLinks = 	manager.getPrettyLinks();
+
+						try {
+							String r = om./*writerWithDefaultPrettyPrinter().*/writeValueAsString(switchLinks);
+							response.setEntity(r, MediaType.APPLICATION_JSON);
+						} catch (Exception e) {
+							e.printStackTrace();
+							return;
+						}
+					}
+				}
+			),
+		
+		new RESTApi(
+				"/wm/topology/links/{switchId}/json",
+				new Restlet() {
+					@Override
+					public void handle(Request request, Response response) {
+						// create an object mapper.
+						ObjectMapper om = new ObjectMapper();
+						om.registerModule(new OFTypeSerializerModule());
+						
+						String switchIdStr = (String) request.getAttributes().get("switchId");
+//						List<PrettyLink> switchLinks = 	manager.getSwitchLinks(HexString.toLong(switchIdStr));
+						
+						Long switchId = HexString.toLong(switchIdStr);
+						HashMap<String, Object> rr = new  HashMap<String, Object>();
+						IOFSwitch sw = manager.getController().getSwitch(switchId);
+						if ( sw != null ) {
+							rr.put("dpid", switchIdStr);
+							rr.put("links", manager.getSwitchLinks(HexString.toLong(switchIdStr)));
+						}
+						
+						try {
+							String r = om./*writerWithDefaultPrettyPrinter().*/writeValueAsString(rr);
+							response.setEntity(r, MediaType.APPLICATION_JSON);
+						} catch (Exception e) {
+							e.printStackTrace();
+							return;
+						}
+			
+						// TBD:
+					}
+				}
+			),
 		/**
 		 * TBD
 		 */

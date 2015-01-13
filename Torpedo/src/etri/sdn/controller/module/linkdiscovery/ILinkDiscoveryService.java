@@ -17,7 +17,7 @@
 
 package etri.sdn.controller.module.linkdiscovery;
 
-import java.util.Map;
+import java.util.List;
 import java.util.Set;
 
 import etri.sdn.controller.IService;
@@ -36,7 +36,7 @@ public interface ILinkDiscoveryService extends IService {
      * Retrieves a map of all known link connections between OpenFlow switches
      * and the associated info (valid time, port states) for the link.
      */
-    public Map<Link, LinkInfo> getLinks();
+    public List<PrettyLink> getPrettyLinks();
 
     /**
      * Returns link type of a given link.
@@ -51,7 +51,7 @@ public interface ILinkDiscoveryService extends IService {
      * Returns an unmodifiable map from switch id to a set of all links with it 
      * as an endpoint.
      */
-    public Map<Long, Set<Link>> getSwitchLinks();
+    public List getSwitchLinks(Long switchId);
 
     /**
      * Adds a listener to listen for ILinkDiscoveryService messages
@@ -89,4 +89,6 @@ public interface ILinkDiscoveryService extends IService {
      * @param autoPortFastFeature
      */
     public void setAutoPortFastFeature(boolean autoPortFastFeature);
+
+	
 }

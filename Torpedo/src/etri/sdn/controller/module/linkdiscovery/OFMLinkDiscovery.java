@@ -1126,15 +1126,25 @@ public class OFMLinkDiscovery extends OFModule implements ILinkDiscoveryService 
 	}
 
 	@Override
-	public Map<Link, LinkInfo> getLinks() {
-		// TODO Auto-generated method stub
-		return null;
+	public List<PrettyLink> getPrettyLinks() {
+		Map<Link, LinkInfo> links = this.links.getLinks();
+		List<PrettyLink> list = new LinkedList<PrettyLink>();
+		for ( Link l : links.keySet() ){
+				list.add( new PrettyLink(l));
+		}		
+		return list;
 	}
 
 	@Override
-	public Map<Long, Set<Link>> getSwitchLinks() {
-		// TODO Auto-generated method stub
-		return null;
+	public List<PrettyLink> getSwitchLinks(Long switchId) {
+		Map<Link, LinkInfo> links = this.links.getLinks();
+		List<PrettyLink> list = new LinkedList<PrettyLink>();
+		for ( Link l : links.keySet() ){
+			if (l.getSrc() == switchId) {
+				list.add( new PrettyLink(l));
+			}
+		}		
+		return list;
 	}
 
 	@Override
