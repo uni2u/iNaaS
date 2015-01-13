@@ -1,17 +1,11 @@
 package etri.sdn.controller.module.vxlanflowmapper;
 
 
-
-
 import java.io.BufferedReader;
-import java.io.BufferedWriter;
-import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
-import java.io.OutputStreamWriter;
 import java.net.HttpURLConnection;
 import java.net.URL;
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -20,12 +14,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-
-
-
-
-
-
 
 import org.codehaus.jackson.map.MappingJsonFactory;
 import org.codehaus.jackson.map.ObjectMapper;
@@ -36,19 +24,9 @@ import org.restlet.Restlet;
 import org.restlet.data.MediaType;
 import org.slf4j.Logger;
 
-
-
-
-
-
-
 import etri.sdn.controller.OFModel;
-import etri.sdn.controller.OFModel.RESTApi;
-import etri.sdn.controller.module.staticentrymanager.IStaticFlowEntryService;
 
 import java.net.MalformedURLException;
-
-import javax.swing.text.html.HTMLDocument.Iterator;
 
 
 public class VxlanFlowMappingStorage extends OFModel  {
@@ -232,7 +210,7 @@ public class VxlanFlowMappingStorage extends OFModel  {
 			OutputStream os = connection.getOutputStream();
 			os.write(output.getBytes());
 			os.flush();
-			os.close();
+			os.close();			
 			BufferedReader br = new BufferedReader(new InputStreamReader(connection.getInputStream()));
 			br.close();
 
@@ -255,6 +233,7 @@ public class VxlanFlowMappingStorage extends OFModel  {
 							MappingJsonFactory f = new MappingJsonFactory();	
 							ObjectMapper mapper = new ObjectMapper(f);
 							String req = request.getEntityAsText();
+							
 							
 							
 							try {

@@ -1,13 +1,10 @@
 package etri.sdn.controller.module.vxlanflowmapper;
 
 
-
 import java.nio.ByteBuffer;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Map;
 
 import org.projectfloodlight.openflow.protocol.OFFlowRemoved;
 import org.projectfloodlight.openflow.protocol.OFMessage;
@@ -29,7 +26,7 @@ import etri.sdn.controller.OFMFilter;
 import etri.sdn.controller.OFModel;
 import etri.sdn.controller.OFModule;
 import etri.sdn.controller.TorpedoProperties;
-import etri.sdn.controller.module.devicemanager.IDeviceService;
+import etri.sdn.controller.module.statemanager.IStateService;
 import etri.sdn.controller.protocol.OFProtocol;
 import etri.sdn.controller.protocol.io.Connection;
 import etri.sdn.controller.protocol.packet.Ethernet;
@@ -49,13 +46,8 @@ public class OFVxlanFlowMappingManager<K, V> extends OFModule  implements IVxlan
 
 	private VxlanFlowMappingStorage vxlanFlowMappingStorage;
 
-	
-//	@Override
-//	protected Collection<Class<? extends IService>> services() {
-//		// no service implemented.
-//		return Collections.emptyList();
-//	}
-	
+	IStateService stateService;
+
 	@Override
 	protected Collection<Class<? extends IService>> services() {
 		List<Class<? extends IService>> ret = new LinkedList<Class<? extends IService>>();
@@ -68,6 +60,7 @@ public class OFVxlanFlowMappingManager<K, V> extends OFModule  implements IVxlan
 		// TODO Auto-generated method stub
 		this.protocol = getController().getProtocol();
 		vxlanFlowMappingStorage = new VxlanFlowMappingStorage(this, "VxlanFlowMappingStorage");
+		stateService = (IStateService) getModule(IStateService.class);
 		
 		registerFilter(
 				OFType.PACKET_IN, 
@@ -90,7 +83,7 @@ public class OFVxlanFlowMappingManager<K, V> extends OFModule  implements IVxlan
 					}
 				}
 				);
-				
+
 	}
 	
 	@Override
@@ -121,6 +114,8 @@ public class OFVxlanFlowMappingManager<K, V> extends OFModule  implements IVxlan
 				} catch ( UnsupportedOperationException u ) {
 					match = this.protocol.loadOFMatchFromPacket(conn.getSwitch(), pi, pi.getInPort(), false);
 				}
+				
+				
 				//System.out.println(match);
 				
 //				OFPort inport = match.get(MatchField.IN_PORT);
@@ -135,6 +130,7 @@ public class OFVxlanFlowMappingManager<K, V> extends OFModule  implements IVxlan
 					 	
 					return this.processPacketInMessage(conn, context, (OFPacketIn) msg, outgoing, match);
 				}
+				
 				break;
 				
 			case FLOW_REMOVED:
@@ -186,6 +182,9 @@ public class OFVxlanFlowMappingManager<K, V> extends OFModule  implements IVxlan
 		}
 		
 		
+//		System.out.println("stateServer : " + stateService);
+//		System.out.println("stateServer.getFLows() : " + stateService.getFlows(HexString.toLong("00:00:0a:14:99:ae:ba:4c"), HexString.toLong("08:00:27:84:a2:ed"), HexString.toLong("08:00:27:f4:7e:ba")));
+//		System.out.println("++++++++++++++++++++ Flow States: swid = 00:00:0a:14:99:ae:ba:4c" + stateService.getFlows(HexString.toLong("00:00:0a:14:99:ae:ba:4c"), HexString.toLong("08:00:27:84:a2:ed"), HexString.toLong("08:00:27:f4:7e:ba")));
 		return true;
 	}
 
@@ -223,6 +222,9 @@ public class OFVxlanFlowMappingManager<K, V> extends OFModule  implements IVxlan
 		
 //		System.out.println("###################### time:" + System.currentTimeMillis() + " dpid:" + conn.getSwitch().getId());
 //		System.out.println(match);
+		
+		
+	
 	
 		Ethernet etherPacket = new Ethernet();
 		etherPacket.deserialize(pi.getData(), 0, pi.getData().length);

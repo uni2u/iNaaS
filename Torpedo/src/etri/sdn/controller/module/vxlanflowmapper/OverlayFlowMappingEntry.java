@@ -1,8 +1,8 @@
 package etri.sdn.controller.module.vxlanflowmapper;
 
+
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Map;
 
 import org.projectfloodlight.openflow.types.EthType;
 import org.projectfloodlight.openflow.types.IPv4Address;
