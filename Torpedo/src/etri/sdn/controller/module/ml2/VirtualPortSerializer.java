@@ -31,12 +31,10 @@ public class VirtualPortSerializer extends JsonSerializer<VirtualPort> {
 		}
 		jGen.writeEndArray();
 		jGen.writeStringField("device_owner", vPort.device_owner);
-		jGen.writeObjectFieldStart("binding_profile");		
-		if (vPort.binding_profile != null) {
-			if(vPort.binding_profile != null) {
-				for (Entry<String, String> entry : vPort.binding_profile.entrySet()) {
-					jGen.writeStringField(entry.getKey().toString().toLowerCase(), entry.getValue().toString());
-				}
+		jGen.writeObjectFieldStart("binding_profile");
+		if(vPort.binding_profile != null) {
+			for (Entry<String, String> entry : vPort.binding_profile.entrySet()) {
+				jGen.writeStringField(entry.getKey().toString().toLowerCase(), entry.getValue().toString());
 			}
 		}
 		jGen.writeEndObject();
@@ -69,11 +67,11 @@ public class VirtualPortSerializer extends JsonSerializer<VirtualPort> {
 		jGen.writeStringField("network_id", vPort.network_id);
 		jGen.writeStringField("tenant_id", vPort.tenant_id);
 		jGen.writeObjectFieldStart("binding:vif_details");
-			if(vPort.binding_vif_details != null) {
-				for (Entry<String, String> entry : vPort.binding_vif_details.entrySet()) {
-					jGen.writeStringField(entry.getKey().toString().toLowerCase(), entry.getValue().toString());
-				}
+		if(vPort.binding_vif_details != null) {
+			for (Entry<String, String> entry : vPort.binding_vif_details.entrySet()) {
+				jGen.writeStringField(entry.getKey().toString().toLowerCase(), entry.getValue().toString());
 			}
+		}
 		jGen.writeEndObject();
 		jGen.writeStringField("binding:vnic_type", vPort.binding_vnic_type);
 		jGen.writeStringField("binding:vif_type", vPort.binding_vif_type);
