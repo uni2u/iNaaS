@@ -712,7 +712,9 @@ public class OFMTunnelManager extends OFModule implements IOFMTunnelManagerServi
 					nodesByIp.get(network_node_ip).used_local_vPortsByGuid.remove(portId);
 				}
 			}
-		} else if("compute:nova".equals(device_owner)) {
+		}
+//		else if("compute:nova".equals(device_owner)) {
+		else if("compute:nova".equals(device_owner) || "compute:None".equals(device_owner)) {
 			String compute_node_ip = "";
 			
 			for(Entry<String, NodeDefinition> entryMap : nodesByIp.entrySet()) {
@@ -841,7 +843,7 @@ public class OFMTunnelManager extends OFModule implements IOFMTunnelManagerServi
 //System.out.println(">>> current_time : " + current_time);
 //System.out.println(">>> time_gap : " + time_gap);
 //System.out.println("========================================");
-					logger.debug("DELETE Tunnel IP {} existing time {} current time {} time gap {}", entry.getKey(), existing_time, current_time, time_gap);
+					logger.debug("checked Tunnel IP {} existing time {} current time {} time gap {}", entry.getKey(), existing_time, current_time, time_gap);
 					if(time_gap >= DELETE_TIME_GAP) {
 						String delTunName = TUNNEL_TYPE + "-" + HexString.toHexString(InetAddress.getByName(entry.getValue().node_ip_tun).getAddress()).replaceAll(":", "");
 						
