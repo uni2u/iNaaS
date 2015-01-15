@@ -188,7 +188,7 @@ public class RestPort extends Restlet {
 				if(!"".equals(port.binding_host_id) && !"".equals(port.device_owner) && !"".equals(port.device_id) && !"".equals(port.network_id)) {
 					port.flow_exec = true;
 				}
-				OFMOpenstackML2Connector.logger.debug("RestPort Request {}, JSON {}", m, request.getEntityAsText());
+//				OFMOpenstackML2Connector.logger.debug("RestPort Request {}, JSON {}", m, request.getEntityAsText());
 			} catch (IOException e) {
 				OFMOpenstackML2Connector.logger.error("RestPort Could not parse JSON {}", e.getMessage());
 			}
