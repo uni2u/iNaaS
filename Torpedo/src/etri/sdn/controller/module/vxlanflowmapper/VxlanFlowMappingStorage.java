@@ -2,10 +2,16 @@ package etri.sdn.controller.module.vxlanflowmapper;
 
 
 import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
+import java.io.OutputStreamWriter;
 import java.net.HttpURLConnection;
+import java.net.ProtocolException;
+import java.net.SocketTimeoutException;
 import java.net.URL;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -25,8 +31,12 @@ import org.restlet.data.MediaType;
 import org.slf4j.Logger;
 
 import etri.sdn.controller.OFModel;
+import etri.sdn.controller.OFModel.RESTApi;
+import etri.sdn.controller.module.staticentrymanager.IStaticFlowEntryService;
 
 import java.net.MalformedURLException;
+
+import javax.swing.text.html.HTMLDocument.Iterator;
 
 
 public class VxlanFlowMappingStorage extends OFModel  {
@@ -200,9 +210,9 @@ public class VxlanFlowMappingStorage extends OFModel  {
 					
 			HttpURLConnection connection  = (HttpURLConnection)url.openConnection();
 			connection.setRequestMethod("POST");
-//            connection.setRequestProperty("X-HTTP-Method-Override", "DELETE");
-//            connection.setConnectTimeout(3000);
-//            connection.setReadTimeout(3000);
+            connection.setRequestProperty("X-HTTP-Method-Override", "DELETE");
+            connection.setConnectTimeout(1000);
+            connection.setReadTimeout(1000);
             connection.setDoInput(true);
             connection.setDoOutput(true);
             connection.setRequestProperty("Accept", "application/json");
@@ -213,9 +223,18 @@ public class VxlanFlowMappingStorage extends OFModel  {
 			os.close();			
 			BufferedReader br = new BufferedReader(new InputStreamReader(connection.getInputStream()));
 			br.close();
-
 			connection.disconnect();
-		} catch ( Exception e ) {
+		} catch (SocketTimeoutException  e ){
+			notificationList.remove(url);
+			e.printStackTrace();			
+		}  catch (ProtocolException e) {
+			notificationList.remove(url);
+			e.printStackTrace();	
+	    } catch (IOException e) {
+	    	notificationList.remove(url);
+	    	e.printStackTrace();	
+	    } catch ( Exception e ) {
+	    	notificationList.remove(url);
 			e.printStackTrace();			
 		}
 		return true;
