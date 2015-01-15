@@ -1,5 +1,6 @@
 package etri.sdn.controller.module.tunnelmanager;
 
+
 import java.net.InetAddress;
 import java.net.URLEncoder;
 import java.text.SimpleDateFormat;
@@ -46,10 +47,11 @@ import etri.sdn.controller.OFModel;
 import etri.sdn.controller.OFModule;
 import etri.sdn.controller.TorpedoProperties;
 import etri.sdn.controller.module.ml2.RestNetwork.NetworkDefinition;
-import etri.sdn.controller.module.ml2.RestPort.PortDefinition;
+import etri.sdn.controller.module.ml2.PortDefinition;
 import etri.sdn.controller.module.routing.IRoutingDecision;
 import etri.sdn.controller.protocol.io.Connection;
 import etri.sdn.controller.protocol.packet.Ethernet;
+
 
 public class OFMTunnelManager extends OFModule implements IOFMTunnelManagerService {
 	
@@ -526,9 +528,89 @@ public class OFMTunnelManager extends OFModule implements IOFMTunnelManagerServi
 		}
 	}
 	
+//	public void create_port_flow(VirtualPort port) {
+//		vPortsByGuid.put(port.getPortId(), port);
+//
+//		if("network:dhcp".equals(port.device_owner) || "network:router_interface".equals(port.device_owner)) {
+//			String network_node_ip = "";
+//			
+//			for(Entry<String, NodeDefinition> entryMap : nodesByIp.entrySet()) {
+//				if("network".equals(entryMap.getValue().node_type)) {
+//					network_node_ip = entryMap.getKey();
+//				}
+//			}
+//			
+//			if(!"".equals(network_node_ip)) {
+//				if(nodesByIp.get(network_node_ip).used_local_vPortsByGuid == null) {
+//					nodesByIp.get(network_node_ip).used_local_vPortsByGuid = new ConcurrentHashMap<String, PortDefinition>();
+//				}
+//				nodesByIp.get(network_node_ip).used_local_vPortsByGuid.put(port.portId, port);
+//				
+//				// change sync true
+//				nodesByIp.get(network_node_ip).tag_sync = true;
+//			}
+//		} else if("compute:nova".equals(port.device_owner) || "compute:None".equals(port.device_owner)) {
+////		} else if("compute:".equals(port.device_owner.substring(0, 8))) {
+//			String compute_node_ip = "";
+//		
+//			for(Entry<String, NodeDefinition> entryMap : nodesByIp.entrySet()) {
+//				if(port.binding_host_id.equals(entryMap.getValue().node_name)) {
+//					compute_node_ip = entryMap.getKey();
+//				}
+//			}
+//			if(!"".equals(compute_node_ip)) {
+//				try{
+//					if(nodesByIp.get(compute_node_ip).used_local_vNetsByGuid == null || 
+//							(nodesByIp.get(compute_node_ip).used_local_vNetsByGuid != null && !nodesByIp.get(compute_node_ip).used_local_vNetsByGuid.containsKey(port.network_id))) {
+//						ArrayList<Integer> available_vlans = new ArrayList<Integer>();
+//						available_vlans = nodesByIp.get(compute_node_ip).available_local_vlans;
+//						Collections.sort(available_vlans);
+//						
+//						String mod_vlan_vid = available_vlans.get(0).toString();
+//						available_vlans.remove(0);
+//						
+//						nodesByIp.get(compute_node_ip).available_local_vlans = available_vlans;
+//						
+//						if(nodesByIp.get(compute_node_ip).used_local_vNetsByVlanid == null) {
+//							nodesByIp.get(compute_node_ip).used_local_vNetsByVlanid = new ConcurrentHashMap<String, NetworkDefinition>();
+//						}
+//						nodesByIp.get(compute_node_ip).used_local_vNetsByVlanid.put(mod_vlan_vid, vNetsByGuid.get(port.network_id));
+//						
+//						if(nodesByIp.get(compute_node_ip).used_local_vNetsByGuid == null) {
+//							nodesByIp.get(compute_node_ip).used_local_vNetsByGuid = new ConcurrentHashMap<String, NetworkDefinition>();
+//						}
+//						nodesByIp.get(compute_node_ip).used_local_vNetsByGuid.put(port.network_id, vNetsByGuid.get(port.network_id));
+//						
+//						if(nodesByIp.get(compute_node_ip).local_vNetidToVlanid == null) {
+//							nodesByIp.get(compute_node_ip).local_vNetidToVlanid = new ConcurrentHashMap<String, String>();
+//						}
+//						nodesByIp.get(compute_node_ip).local_vNetidToVlanid.put(port.network_id, mod_vlan_vid);
+//	
+//						String tun_id = "0x"+Integer.toHexString(Integer.parseInt(vNetsByGuid.get(port.network_id).provider_segmentation_id)).toString();
+//	
+//						rest_post(compute_node_ip, INAAS_AGENT_REST_PORT, "sudo ovs-ofctl add-flow "+TUNNELING_BRIDGE_NAME+" hard_timeout=0,idle_timeout=0,table="+VXLAN_TUN_TO_LV+",priority=1,tun_id="+tun_id+",actions=mod_vlan_vid:"+mod_vlan_vid+",resubmit(,"+LEARN_FROM_TUN+")");
+//					}
+//					
+//					if(nodesByIp.get(compute_node_ip).used_local_vPortsByGuid == null) {
+//						nodesByIp.get(compute_node_ip).used_local_vPortsByGuid = new ConcurrentHashMap<String, PortDefinition>();
+//					}
+//					nodesByIp.get(compute_node_ip).used_local_vPortsByGuid.put(port.portId, port);
+//					
+//					vmByGuid.put(port.portId, port);
+//					
+//					// change sync true
+//					nodesByIp.get(compute_node_ip).flow_sync = true;
+//					nodesByIp.get(compute_node_ip).tag_sync = true;
+//				} catch(Exception e) {
+//					logger.error("Unable to create_port_flow. Exception : {}", e.getMessage());
+//					e.printStackTrace();
+//				}
+//			}
+//		}
+//	}
 	public void create_port_flow(PortDefinition port) {
 		vPortsByGuid.put(port.portId, port);
-		
+
 		if("network:dhcp".equals(port.device_owner) || "network:router_interface".equals(port.device_owner)) {
 			String network_node_ip = "";
 			
@@ -547,20 +629,19 @@ public class OFMTunnelManager extends OFModule implements IOFMTunnelManagerServi
 				// change sync true
 				nodesByIp.get(network_node_ip).tag_sync = true;
 			}
-		} else if("compute:nova".equals(port.device_owner)) {
+		} else if("compute:nova".equals(port.device_owner) || "compute:None".equals(port.device_owner)) {
+//		} else if("compute:".equals(port.device_owner.substring(0, 8))) {
 			String compute_node_ip = "";
-			
+		
 			for(Entry<String, NodeDefinition> entryMap : nodesByIp.entrySet()) {
 				if(port.binding_host_id.equals(entryMap.getValue().node_name)) {
 					compute_node_ip = entryMap.getKey();
 				}
 			}
-			
 			if(!"".equals(compute_node_ip)) {
 				try{
 					if(nodesByIp.get(compute_node_ip).used_local_vNetsByGuid == null || 
 							(nodesByIp.get(compute_node_ip).used_local_vNetsByGuid != null && !nodesByIp.get(compute_node_ip).used_local_vNetsByGuid.containsKey(port.network_id))) {
-					
 						ArrayList<Integer> available_vlans = new ArrayList<Integer>();
 						available_vlans = nodesByIp.get(compute_node_ip).available_local_vlans;
 						Collections.sort(available_vlans);
@@ -586,7 +667,7 @@ public class OFMTunnelManager extends OFModule implements IOFMTunnelManagerServi
 						nodesByIp.get(compute_node_ip).local_vNetidToVlanid.put(port.network_id, mod_vlan_vid);
 	
 						String tun_id = "0x"+Integer.toHexString(Integer.parseInt(vNetsByGuid.get(port.network_id).provider_segmentation_id)).toString();
-	
+
 						rest_post(compute_node_ip, INAAS_AGENT_REST_PORT, "sudo ovs-ofctl add-flow "+TUNNELING_BRIDGE_NAME+" hard_timeout=0,idle_timeout=0,table="+VXLAN_TUN_TO_LV+",priority=1,tun_id="+tun_id+",actions=mod_vlan_vid:"+mod_vlan_vid+",resubmit(,"+LEARN_FROM_TUN+")");
 					}
 					
@@ -602,6 +683,7 @@ public class OFMTunnelManager extends OFModule implements IOFMTunnelManagerServi
 					nodesByIp.get(compute_node_ip).tag_sync = true;
 				} catch(Exception e) {
 					logger.error("Unable to create_port_flow. Exception : {}", e.getMessage());
+					e.printStackTrace();
 				}
 			}
 		}
@@ -753,12 +835,13 @@ public class OFMTunnelManager extends OFModule implements IOFMTunnelManagerServi
 					String existing_time = entry.getValue().current_time;
 					Long time_gap = (simpledateformat.parse(current_time).getTime() - simpledateformat.parse(existing_time).getTime()) / 60000;
 					
-System.out.println("========================================");
-System.out.println(">>> IP : " + entry.getKey());
-System.out.println(">>> existing_time : " + existing_time);
-System.out.println(">>> current_time : " + current_time);
-System.out.println(">>> time_gap : " + time_gap);
-System.out.println("========================================");
+//System.out.println("========================================");
+//System.out.println(">>> IP : " + entry.getKey());
+//System.out.println(">>> existing_time : " + existing_time);
+//System.out.println(">>> current_time : " + current_time);
+//System.out.println(">>> time_gap : " + time_gap);
+//System.out.println("========================================");
+					logger.debug("DELETE Tunnel IP {} existing time {} current time {} time gap {}", entry.getKey(), existing_time, current_time, time_gap);
 					if(time_gap >= DELETE_TIME_GAP) {
 						String delTunName = TUNNEL_TYPE + "-" + HexString.toHexString(InetAddress.getByName(entry.getValue().node_ip_tun).getAddress()).replaceAll(":", "");
 						

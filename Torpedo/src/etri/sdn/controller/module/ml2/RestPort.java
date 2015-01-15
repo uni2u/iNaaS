@@ -30,25 +30,58 @@ public class RestPort extends Restlet {
 		return this.parent;
 	}
 
-	public class PortDefinition {
-		public String binding_host_id = null;
-		public List<String> allowed_address_pairs = null;
-		public List<String> extra_dhcp_opts = null;
-		public String device_owner = null;
-		public Map<String, String> binding_profile = null;
-		public List<Map<String, String>> fixed_ips = null;
-		public String portId = null;
-		public List<Map<String, Object>> security_groups = null;
-		public String device_id = null;
-		public String portName = null;
-		public String admin_state_up = null;
-		public String network_id = null;
-		public String tenant_id = null;
-		public Map<String, String> binding_vif_details = null;
-		public String binding_vnic_type = null;
-		public String binding_vif_type = null;
-		public String mac_address = null;
-	}
+	/**
+	 * create PortDefinition
+	 * We will used virtualPort class
+	 * @param json
+	 * @param port
+	 * @throws IOException
+	 */
+//	public class PortDefinition {
+//		public String binding_host_id = null;
+//		public List<String> allowed_address_pairs = null;
+//		public List<String> extra_dhcp_opts = null;
+//		public String device_owner = null;
+//		public Map<String, String> binding_profile = null;
+//		public List<Map<String, String>> fixed_ips = null;
+//		public String portId = null;
+//		public List<Map<String, Object>> security_groups = null;
+//		public String device_id = null;
+//		public String portName = null;
+//		public String admin_state_up = null;
+//		public String network_id = null;
+//		public String tenant_id = null;
+//		public Map<String, String> binding_vif_details = null;
+//		public String binding_vnic_type = null;
+//		public String binding_vif_type = null;
+//		public String mac_address = null;
+//		public Boolean flow_exec = false;
+//		
+//		public PortDefinition() {
+//			
+//		}
+//		
+//		public PortDefinition(VirtualPort vPort) {
+//			this.binding_host_id = vPort.getBinding_host_id();
+//			this.allowed_address_pairs = vPort.getAllowed_address_pairs();
+//			this.extra_dhcp_opts = vPort.getExtra_dhcp_opts();
+//			this.device_owner = vPort.getDevice_owner();
+//			this.binding_profile = vPort.getBinding_profile();
+//			this.fixed_ips = vPort.getFixed_ips();
+//			this.portId = vPort.getPortId();
+//			this.security_groups = vPort.getSecurity_groups();
+//			this.device_id = vPort.getDevice_id();
+//			this.portName = vPort.getPortName();
+//			this.admin_state_up = vPort.getAdmin_state_up();
+//			this.network_id = vPort.getNetwork_id();
+//			this.tenant_id = vPort.getTenant_id();
+//			this.binding_vif_details = vPort.getBinding_vif_details();
+//			this.binding_vnic_type = vPort.getBinding_vnic_type();
+//			this.binding_vif_type = vPort.getBinding_vif_type();
+//			this.mac_address = vPort.getMac_address();
+//			this.flow_exec = vPort.getFlow_exec();
+//		}
+//	}
 
 	protected void jsonToPortDefinition(String json, PortDefinition port) throws IOException {
 		// convert json to map
@@ -149,29 +182,29 @@ public class RestPort extends Restlet {
 
 		if (m == Method.POST || m == Method.PUT) {
 			PortDefinition port = new PortDefinition();
-			
-			String actionType = "";
-			if("".equals(portUUID)) {
-				actionType = "create";
-			} else {
-				actionType = "update";
-			}
 
 			try {
 				jsonToPortDefinition(request.getEntityAsText(), port);
+				if(!"".equals(port.binding_host_id) && !"".equals(port.device_owner) && !"".equals(port.device_id) && !"".equals(port.network_id)) {
+					port.flow_exec = true;
+				}
+				OFMOpenstackML2Connector.logger.debug("RestPort Request {}, JSON {}", m, request.getEntityAsText());
 			} catch (IOException e) {
 				OFMOpenstackML2Connector.logger.error("RestPort Could not parse JSON {}", e.getMessage());
 			}
 
 			// We try to get the ID from the URI only if it's not
 			// in the POST data
-			if (port.portId == null) {
+			if (port.portId == null) {				
 				if(!"".equals(portUUID)) {
 					port.portId = portUUID;
-					parent.getModule().createPort(port, actionType);
+//					parent.getModule().createPort(port, actionType);
+					parent.getModule().createPort(port);
 				}
-			} else
-				parent.getModule().createPort(port, actionType);
+			} else {
+//				parent.getModule().createPort(port, actionType);
+				parent.getModule().createPort(port);
+			}
 
 //			parent.getModule().createPort(port, actionType);
 			response.setStatus(Status.SUCCESS_OK);
@@ -191,5 +224,6 @@ public class RestPort extends Restlet {
 			
 		}
 	}
+
 
 }

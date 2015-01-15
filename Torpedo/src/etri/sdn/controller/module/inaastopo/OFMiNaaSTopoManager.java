@@ -28,7 +28,7 @@ import etri.sdn.controller.TorpedoProperties;
 import etri.sdn.controller.module.devicemanager.IDevice;
 import etri.sdn.controller.module.devicemanager.IDeviceService;
 import etri.sdn.controller.module.linkdiscovery.ILinkDiscoveryService;
-import etri.sdn.controller.module.ml2.RestPort.PortDefinition;
+import etri.sdn.controller.module.ml2.PortDefinition;
 import etri.sdn.controller.module.routing.IRoutingDecision;
 import etri.sdn.controller.module.tunnelmanager.IOFMTunnelManagerService;
 import etri.sdn.controller.protocol.io.Connection;

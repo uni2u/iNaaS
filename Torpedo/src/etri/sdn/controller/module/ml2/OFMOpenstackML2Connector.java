@@ -23,7 +23,6 @@ import etri.sdn.controller.MessageContext;
 import etri.sdn.controller.OFModel;
 import etri.sdn.controller.OFModule;
 import etri.sdn.controller.module.ml2.RestNetwork.NetworkDefinition;
-import etri.sdn.controller.module.ml2.RestPort.PortDefinition;
 import etri.sdn.controller.module.ml2.RestSubnet.SubnetDefinition;
 import etri.sdn.controller.module.routing.IRoutingDecision;
 import etri.sdn.controller.module.tunnelmanager.OFMTunnelManager;
@@ -493,7 +492,8 @@ public class OFMOpenstackML2Connector extends OFModule implements IOpenstackML2C
 	}
 
 	@Override
-	public void createPort(PortDefinition port, String actionType) {
+//	public void createPort(PortDefinition port, String actionType) {
+	public void createPort(PortDefinition port) {
 		
 		String portId = port.portId;
 		String binding_host_id = port.binding_host_id;
@@ -508,31 +508,72 @@ public class OFMOpenstackML2Connector extends OFModule implements IOpenstackML2C
 		Map<String, String> binding_vif_details = port.binding_vif_details;
 		String binding_vnic_type = port.binding_vnic_type;
 		String binding_vif_type = port.binding_vif_type;
+		String network_id = port.network_id;
 		
 		if(vPortsByGuid.containsKey(portId)) {
-			vPortsByGuid.get(portId).setBindingHostId(binding_host_id);				// port already exists, just updating binding:host_id
-			vPortsByGuid.get(portId).setAllowedAddressPairs(allowed_address_pairs);	// port already exists, just updating allowed_address_pairs
-			vPortsByGuid.get(portId).setExtraDhcpOpts(extra_dhcp_opts);				// port already exists, just updating extra_dhcp_opts
-			vPortsByGuid.get(portId).setDeviceOwner(device_owner);					// port already exists, just updating device_owner
-			vPortsByGuid.get(portId).setBindingProfile(binding_profile);				// port already exists, just updating binding_profile
-			vPortsByGuid.get(portId).setSecurityGroups(security_groups);				// port already exists, just updating security_groups
-			vPortsByGuid.get(portId).setDeviceId(device_id);							// port already exists, just updating device_id
-			vPortsByGuid.get(portId).setPorName(portName);								// port already exists, just updating name
-			vPortsByGuid.get(portId).setAdminStateUp(admin_state_up);					// port already exists, just updating admin_state_up
-			vPortsByGuid.get(portId).setBindingVifDetails(binding_vif_details);		// port already exists, just updating binding:vif_details
-			vPortsByGuid.get(portId).setBindingVnicType(binding_vnic_type);			// port already exists, just updating binding:vnic_type
-			vPortsByGuid.get(portId).setBindingVifType(binding_vif_type);				// port already exists, just updating binding:vif_type
-
+			if(!"".equals(binding_host_id) && !"null".equals(binding_host_id) && binding_host_id != null) {
+				vPortsByGuid.get(portId).setBindingHostId(binding_host_id);				// port already exists, just updating binding:host_id
+			}
+			if(!"".equals(allowed_address_pairs) && !"null".equals(allowed_address_pairs) && allowed_address_pairs != null) {
+				vPortsByGuid.get(portId).setAllowedAddressPairs(allowed_address_pairs);	// port already exists, just updating allowed_address_pairs
+			}
+			if(!"".equals(extra_dhcp_opts) && !"null".equals(extra_dhcp_opts) && extra_dhcp_opts != null) {
+				vPortsByGuid.get(portId).setExtraDhcpOpts(extra_dhcp_opts);				// port already exists, just updating extra_dhcp_opts
+			}
+			if(!"".equals(device_owner) && !"null".equals(device_owner) && device_owner != null) {
+				vPortsByGuid.get(portId).setDeviceOwner(device_owner);					// port already exists, just updating device_owner
+			}
+			if(!"".equals(binding_profile) && !"null".equals(binding_profile) && binding_profile != null) {
+				vPortsByGuid.get(portId).setBindingProfile(binding_profile);				// port already exists, just updating binding_profile
+			}
+			if(!"".equals(security_groups) && !"null".equals(security_groups) && security_groups != null) {
+				vPortsByGuid.get(portId).setSecurityGroups(security_groups);				// port already exists, just updating security_groups
+			}
+			if(!"".equals(device_id) && !"null".equals(device_id) && device_id != null) {
+				vPortsByGuid.get(portId).setDeviceId(device_id);							// port already exists, just updating device_id
+			}
+			if(!"".equals(portName) && !"null".equals(portName) && portName != null) {
+				vPortsByGuid.get(portId).setPorName(portName);								// port already exists, just updating name
+			}
+			if(!"".equals(admin_state_up) && !"null".equals(admin_state_up) && admin_state_up != null) {
+				vPortsByGuid.get(portId).setAdminStateUp(admin_state_up);					// port already exists, just updating admin_state_up
+			}
+			if(!"".equals(binding_vif_details) && !"null".equals(binding_vif_details) && binding_vif_details != null) {
+				vPortsByGuid.get(portId).setBindingVifDetails(binding_vif_details);		// port already exists, just updating binding:vif_details
+			}
+			if(!"".equals(binding_vnic_type) && !"null".equals(binding_vnic_type) && binding_vnic_type != null) {
+				vPortsByGuid.get(portId).setBindingVnicType(binding_vnic_type);			// port already exists, just updating binding:vnic_type
+			}
+			if(!"".equals(binding_vif_type) && !"null".equals(binding_vif_type) && binding_vif_type != null) {
+				vPortsByGuid.get(portId).setBindingVifType(binding_vif_type);				// port already exists, just updating binding:vif_type
+			}
+			if(!"".equals(network_id) && !"null".equals(network_id) && network_id != null) {
+				vPortsByGuid.get(portId).setNetworkId(network_id);				// port already exists, just updating binding:vif_type
+			}
+			
+			if(!"".equals(vPortsByGuid.get(portId).getBinding_host_id()) ||
+					!"".equals(vPortsByGuid.get(portId).getDevice_owner()) ||
+					!"".equals(vPortsByGuid.get(portId).getDevice_id()) ||
+					!"".equals(vPortsByGuid.get(portId).getNetwork_id())) {
+				if(!vPortsByGuid.get(portId).getFlow_exec()) {
+					
+					OFMTunnelManager tm = new OFMTunnelManager();
+					tm.create_port_flow(new PortDefinition(vPortsByGuid.get(portId)));
+//					tm.create_port_flow(vPortsByGuid.get(portId));
+					
+					vPortsByGuid.get(portId).setFlowExec(true);
+				}
+			}
 		} else {
 			vPortsByGuid.put(portId, new VirtualPort(port));	// create new port
 
-			if("create".equals(actionType)) {
+			if(port.flow_exec) {
 				OFMTunnelManager tm = new OFMTunnelManager();
 				tm.create_port_flow(port);
+//				tm.create_port_flow(vPortsByGuid.get(portId));
 			}
 			
-		}
-		
+		}		
 	}
 
 	@Override

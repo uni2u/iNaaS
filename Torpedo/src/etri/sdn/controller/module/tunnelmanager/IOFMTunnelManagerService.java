@@ -3,7 +3,7 @@ package etri.sdn.controller.module.tunnelmanager;
 import java.util.Map;
 
 import etri.sdn.controller.IService;
-import etri.sdn.controller.module.ml2.RestPort.PortDefinition;
+import etri.sdn.controller.module.ml2.PortDefinition;
 import etri.sdn.controller.module.tunnelmanager.OFMTunnelManager.NodeDefinition;
 
 public interface IOFMTunnelManagerService extends IService {

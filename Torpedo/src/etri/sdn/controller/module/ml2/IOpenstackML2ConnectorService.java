@@ -2,7 +2,6 @@ package etri.sdn.controller.module.ml2;
 
 import etri.sdn.controller.IService;
 import etri.sdn.controller.module.ml2.RestNetwork.NetworkDefinition;
-import etri.sdn.controller.module.ml2.RestPort.PortDefinition;
 import etri.sdn.controller.module.ml2.RestSubnet.SubnetDefinition;
 
 /**
@@ -75,7 +74,9 @@ public interface IOpenstackML2ConnectorService extends IService {
 	 * and the fields you want to update.
 	 * @param port : PortDefinition - port info
 	 */
-	public void createPort(PortDefinition port, String actionType);
+//	public void createPort(PortDefinition port, String actionType);
+	public void createPort(PortDefinition port);
+	
 
 	/**
 	 * Deletes a virtual port.

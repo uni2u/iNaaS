@@ -5,8 +5,6 @@ import java.util.Map;
 
 import org.codehaus.jackson.map.annotate.JsonSerialize;
 
-import etri.sdn.controller.module.ml2.RestPort.PortDefinition;
-
 
 @JsonSerialize(using=VirtualPortSerializer.class)
 public class VirtualPort {
@@ -28,6 +26,7 @@ public class VirtualPort {
 	protected String binding_vnic_type;						// port binding_vnic_type
 	protected String binding_vif_type;						// port binding_vif_type
 	protected String mac_address;							// port mac_address
+	protected Boolean flow_exec;
 
 	/**
 	* Constructor requires network info
@@ -51,6 +50,7 @@ public class VirtualPort {
 		this.binding_vnic_type = port.binding_vnic_type;
 		this.binding_vif_type = port.binding_vif_type;
 		this.mac_address = port.mac_address;
+		this.flow_exec = port.flow_exec;
 		
 		return;
 	}
@@ -180,5 +180,95 @@ public class VirtualPort {
 //		this.binding_vif_detail = binding_vif_detail;
 //		return;
 //	}
+	
+	/**
+	 * Sets port flow_exec
+	 * @param flow_exec : flow_exec
+	 */
+	public void setFlowExec(Boolean flow_exec) {
+		this.flow_exec = flow_exec;
+		return;
+	}
+	
+	/**
+	 * Sets port network_id
+	 * @param network_id : network_id
+	 */
+	public void setNetworkId(String network_id) {
+		this.network_id = network_id;
+		return;
+	}
+	
+	public String getBinding_host_id() {
+		return binding_host_id;
+	}
+
+	public List<String> getAllowed_address_pairs() {
+		return allowed_address_pairs;
+	}
+
+	public List<String> getExtra_dhcp_opts() {
+		return extra_dhcp_opts;
+	}
+
+	public String getDevice_owner() {
+		return device_owner;
+	}
+
+	public Map<String, String> getBinding_profile() {
+		return binding_profile;
+	}
+
+	public List<Map<String, String>> getFixed_ips() {
+		return fixed_ips;
+	}
+
+	public String getPortId() {
+		return portId;
+	}
+
+	public List<Map<String, Object>> getSecurity_groups() {
+		return security_groups;
+	}
+
+	public String getDevice_id() {
+		return device_id;
+	}
+
+	public String getPortName() {
+		return portName;
+	}
+
+	public String getAdmin_state_up() {
+		return admin_state_up;
+	}
+
+	public String getNetwork_id() {
+		return network_id;
+	}
+
+	public String getTenant_id() {
+		return tenant_id;
+	}
+
+	public Map<String, String> getBinding_vif_details() {
+		return binding_vif_details;
+	}
+
+	public String getBinding_vnic_type() {
+		return binding_vnic_type;
+	}
+
+	public String getBinding_vif_type() {
+		return binding_vif_type;
+	}
+
+	public String getMac_address() {
+		return mac_address;
+	}
+
+	public Boolean getFlow_exec() {
+		return flow_exec;
+	}
 
 }
