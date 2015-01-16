@@ -154,8 +154,13 @@ public class RestSubnet extends Restlet {
 			
 		} else if (m == Method.DELETE) {
 			
-			parent.getModule().deleteSubnet(subUUID);
-			response.setStatus(Status.SUCCESS_OK);
+			if (subUUID != null) {
+				parent.getModule().deleteSubnet(subUUID);
+				response.setStatus(Status.SUCCESS_OK);
+			} else {
+				OFMOpenstackML2Connector.logger.error("ERROR!!! DELETE RestSubnet : SubnetID is NULL");
+				response.setStatus(Status.CLIENT_ERROR_BAD_REQUEST);
+			}
 			
 		}
 	}

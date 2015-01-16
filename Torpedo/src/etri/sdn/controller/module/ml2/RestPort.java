@@ -219,9 +219,13 @@ public class RestPort extends Restlet {
 			
 		} else if (m == Method.DELETE) {
 
-			parent.getModule().deletePort(portUUID);
-			response.setStatus(Status.SUCCESS_OK);
-			
+			if (portUUID != null) {
+				parent.getModule().deletePort(portUUID);
+				response.setStatus(Status.SUCCESS_OK);
+			} else {
+				OFMOpenstackML2Connector.logger.error("ERROR!!! DELETE RestPort : PortID is NULL");
+				response.setStatus(Status.CLIENT_ERROR_BAD_REQUEST);
+			}
 		}
 	}
 

@@ -125,8 +125,13 @@ public class RestNetwork extends Restlet {
 
 		} else if (m == Method.DELETE) {
 
-			parent.getModule().deleteNetwork(netUUID);
-			response.setStatus(Status.SUCCESS_OK);
+			if (netUUID != null) {
+				parent.getModule().deleteNetwork(netUUID);
+				response.setStatus(Status.SUCCESS_OK);
+			} else {
+				OFMOpenstackML2Connector.logger.error("ERROR!!! DELETE RestNetwork : NetworkID is NULL");
+				response.setStatus(Status.CLIENT_ERROR_BAD_REQUEST);
+			}
 
 		}
 	}
