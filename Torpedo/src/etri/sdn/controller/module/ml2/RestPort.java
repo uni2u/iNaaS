@@ -220,6 +220,7 @@ public class RestPort extends Restlet {
 		} else if (m == Method.DELETE) {
 
 			if (portUUID != null) {
+				OFMOpenstackML2Connector.logger.debug("DELETE RestPort UUID {}", portUUID);
 				parent.getModule().deletePort(portUUID);
 				response.setStatus(Status.SUCCESS_OK);
 			} else {

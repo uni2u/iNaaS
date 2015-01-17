@@ -18,7 +18,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import etri.sdn.controller.IService;
-import etri.sdn.controller.Main;
 import etri.sdn.controller.MessageContext;
 import etri.sdn.controller.OFModel;
 import etri.sdn.controller.OFModule;
@@ -40,10 +39,10 @@ public class OFMOpenstackML2Connector extends OFModule implements IOpenstackML2C
 	private OFProtocol protocol;
 
 	// Our internal state
-	protected Map<String, String> netNameToGuid;		// Logical name -> Network ID
+//	protected Map<String, String> netNameToGuid;		// Logical name -> Network ID
 	protected Map<String, VirtualNetwork> vNetsByGuid;	// List of all created virtual networks
 	protected Map<String, VirtualSubnet> vSubsByGuid;	// List of all created virtual subnets
-	protected Map<String, String> subIdToNetId;			// Subnet ID -> Network Id
+//	protected Map<String, String> subIdToNetId;			// Subnet ID -> Network Id
 	protected Map<String, VirtualPort> vPortsByGuid;		// List of all created virtual ports
 	
 
@@ -63,10 +62,10 @@ public class OFMOpenstackML2Connector extends OFModule implements IOpenstackML2C
 		// because this module does not receive any message from the Openflow layer,
 		// there's nothing to do here.
 
-		netNameToGuid = new ConcurrentHashMap<String, String>();
+//		netNameToGuid = new ConcurrentHashMap<String, String>();
 		vNetsByGuid = new ConcurrentHashMap<String, VirtualNetwork>();
 		vSubsByGuid = new ConcurrentHashMap<String, VirtualSubnet>();
-		subIdToNetId = new ConcurrentHashMap<String, String>();
+//		subIdToNetId = new ConcurrentHashMap<String, String>();
 		vPortsByGuid = new ConcurrentHashMap<String, VirtualPort>();
 		
 	}
@@ -243,19 +242,19 @@ public class OFMOpenstackML2Connector extends OFModule implements IOpenstackML2C
 		String shared = network.shared;
 		String provider_segmentation_id = network.provider_segmentation_id;
 
-		if(!netNameToGuid.isEmpty()) {
-			// We have to iterate all the networks to handle name/gateway changes
-			for(Entry<String, String> entry : netNameToGuid.entrySet()) {
-				if(entry.getValue().equals(netId)) {
-					netNameToGuid.remove(entry.getKey());
-					break;
-				}
-			}
-		}
-
-		if(netName != null) {
-			netNameToGuid.put(netName, netId);
-		}
+//		if(!netNameToGuid.isEmpty()) {
+//			// We have to iterate all the networks to handle name/gateway changes
+//			for(Entry<String, String> entry : netNameToGuid.entrySet()) {
+//				if(entry.getValue().equals(netId)) {
+//					netNameToGuid.remove(entry.getKey());
+//					break;
+//				}
+//			}
+//		}
+//
+//		if(netName != null) {
+//			netNameToGuid.put(netName, netId);
+//		}
 
 		if(vNetsByGuid.containsKey(netId)) {
 			vNetsByGuid.get(netId).setNetName(netName);										//network already exists, just updating name
@@ -276,33 +275,35 @@ public class OFMOpenstackML2Connector extends OFModule implements IOpenstackML2C
 
 	@Override
 	public void deleteNetwork(String netId) {
-		String netName = null;
+//		String netName = null;
 
-		if(netNameToGuid.isEmpty()) {
-			logger.debug("_Could not delete network with ID {}, network doesn't exist", netId);
-			return;
-		}
+//		if(netNameToGuid.isEmpty()) {
+//			logger.debug("_Could not delete network with ID {}, network doesn't exist", netId);
+//			return;
+//		}
+//
+//		for(Entry<String, String> entry : netNameToGuid.entrySet()) {
+//			if (entry.getValue().equals(netId)) {
+//				netName = entry.getKey();
+//				break;
+//			}
+//			logger.debug("Could not delete network with ID {}, network doesn't exist", netId);
+//		}
 
-		for(Entry<String, String> entry : netNameToGuid.entrySet()) {
-			if (entry.getValue().equals(netId)) {
-				netName = entry.getKey();
-				break;
-			}
-			logger.debug("Could not delete network with ID {}, network doesn't exist", netId);
-		}
+//		if(Main.debug) {
+//			logger.debug("Deleting network with name {} ID {}", netName, netId);
+//		}
 
-		if(Main.debug) {
-			logger.debug("Deleting network with name {} ID {}", netName, netId);
-		}
+//		netNameToGuid.remove(netName);
 
-		netNameToGuid.remove(netName);
-
+		OFMTunnelManager tm = new OFMTunnelManager();
+		tm.delete_network_flow(netId);
+		
 		if(vNetsByGuid.get(netId) != null){
+			logger.debug("Deleting network with ID {}", netId);
 			vNetsByGuid.remove(netId);
 		}
 		
-		OFMTunnelManager tm = new OFMTunnelManager();
-		tm.delete_network_flow(netId);
 	}
 
 	@Override
@@ -364,7 +365,7 @@ public class OFMOpenstackML2Connector extends OFModule implements IOpenstackML2C
 	public void createSubnet(SubnetDefinition subnet) {
 		String subId = subnet.subId;
 		String subName = subnet.subName;
-		String netId = subnet.network_id;
+//		String netId = subnet.network_id;
 		String enableDhcp = subnet.enable_dhcp;
 		String gatewayIp = subnet.gateway_ip;
 		String shared = subnet.shared;
@@ -373,21 +374,21 @@ public class OFMOpenstackML2Connector extends OFModule implements IOpenstackML2C
 		String ipv6_ra_mode = subnet.ipv6_ra_mode;
 		String ipv6_address_mode = subnet.ipv6_address_mode;
 
-		if(!subIdToNetId.isEmpty()) {
-			for(Entry<String, String> entry : subIdToNetId.entrySet()) {
-				if(entry.getKey().equals(subId)) {
-					if(netId == null) {
-						netId = entry.getValue();
-					}
-					subIdToNetId.remove(entry.getKey());
-					break;
-				}
-			}
-		}
-
-		if(subId != null) {
-			subIdToNetId.put(subId, netId);
-		}
+//		if(!subIdToNetId.isEmpty()) {
+//			for(Entry<String, String> entry : subIdToNetId.entrySet()) {
+//				if(entry.getKey().equals(subId)) {
+//					if(netId == null) {
+//						netId = entry.getValue();
+//					}
+//					subIdToNetId.remove(entry.getKey());
+//					break;
+//				}
+//			}
+//		}
+//
+//		if(subId != null) {
+//			subIdToNetId.put(subId, netId);
+//		}
 
 		if(vSubsByGuid.containsKey(subId)) {
 			vSubsByGuid.get(subId).setSubName(subName);						// subnet already exists, just updating name
@@ -402,36 +403,41 @@ public class OFMOpenstackML2Connector extends OFModule implements IOpenstackML2C
 			vSubsByGuid.put(subId, new VirtualSubnet(subnet));	// create new subnet
 		}
 
-		if(vNetsByGuid.containsKey(netId)) {
-			vNetsByGuid.get(netId).addSubnets(subId, subName);	// network subnets add
-		}
+//		if(vNetsByGuid.containsKey(netId)) {
+//			vNetsByGuid.get(netId).addSubnets(subId, subName);	// network subnets add
+//		}
 	}
 
 	@Override
 	public void deleteSubnet(String subId) {
-		String netId = null;
+//		String netId = null;
 
-		if(subIdToNetId.isEmpty()) {
-			logger.debug("Could not delete subnet with ID {}, subnet doesn't exist", subId);
-			return;
-		}
+//		if(subIdToNetId.isEmpty()) {
+//			logger.debug("Could not delete subnet with ID {}, subnet doesn't exist", subId);
+//			return;
+//		}
+//
+//		for(Entry<String, String> entry : subIdToNetId.entrySet()) {
+//			if (entry.getKey().equals(subId)) {
+//				netId = entry.getValue();
+//				break;
+//			}
+//			logger.debug("Could not delete subnet with ID {}, subnet doesn't exist", subId);
+//		}
+		
+//		if(Main.debug) {
+//			logger.debug("Deleting subnet with ID {}", subId);
+//		}
 
-		for(Entry<String, String> entry : subIdToNetId.entrySet()) {
-			if (entry.getKey().equals(subId)) {
-				netId = entry.getValue();
-				break;
-			}
-			logger.debug("Could not delete subnet with ID {}, subnet doesn't exist", subId);
-		}
+//		subIdToNetId.remove(subId);
 
-		subIdToNetId.remove(subId);
-
+//		if(vNetsByGuid.containsKey(netId)) {
+//			vNetsByGuid.get(netId).delSubnets(subId); // network subnets delete
+//		}
+		
 		if(vSubsByGuid.get(subId) != null){
+			logger.debug("Deleting subnet with ID {}", subId);
 			vSubsByGuid.remove(subId);
-		}
-
-		if(vNetsByGuid.containsKey(netId)) {
-			vNetsByGuid.get(netId).delSubnets(subId); // network subnets delete
 		}
 		
 	}
@@ -556,31 +562,43 @@ public class OFMOpenstackML2Connector extends OFModule implements IOpenstackML2C
 					!"".equals(vPortsByGuid.get(portId).getDevice_id()) ||
 					!"".equals(vPortsByGuid.get(portId).getNetwork_id())) {
 				if(!vPortsByGuid.get(portId).getFlow_exec()) {
-					
-					OFMTunnelManager tm = new OFMTunnelManager();
-					tm.create_port_flow(new PortDefinition(vPortsByGuid.get(portId)));
-//					tm.create_port_flow(vPortsByGuid.get(portId));
-					
-					vPortsByGuid.get(portId).setFlowExec(true);
+					if("network:router_gateway".equals(vPortsByGuid.get(portId).getDevice_owner()) ||
+							"network:floatingip".equals(vPortsByGuid.get(portId).getDevice_owner())) {
+						vPortsByGuid.remove(portId);
+					} else {
+						OFMTunnelManager tm = new OFMTunnelManager();
+						tm.create_port_flow(new PortDefinition(vPortsByGuid.get(portId)));
+						
+						vPortsByGuid.get(portId).setFlowExec(true);
+					}
 				}
 			}
 		} else {
 			vPortsByGuid.put(portId, new VirtualPort(port));	// create new port
+			if("network:router_gateway".equals(device_owner) || "network:floatingip".equals(device_owner)) {
+				vPortsByGuid.remove(portId);
+			}
 
 			if(port.flow_exec) {
-				OFMTunnelManager tm = new OFMTunnelManager();
-				tm.create_port_flow(port);
-//				tm.create_port_flow(vPortsByGuid.get(portId));
+//				if("network:router_gateway".equals(device_owner) || "network:floatingip".equals(device_owner)) {
+//					vPortsByGuid.remove(portId);
+//				} else {
+					OFMTunnelManager tm = new OFMTunnelManager();
+					tm.create_port_flow(port);
+//					tm.create_port_flow(vPortsByGuid.get(portId));
+//				}
 			}
-			
 		}		
 	}
 
 	@Override
 	public void deletePort(String portId) {
 		
-		if(vPortsByGuid.get(portId) != null){
-			vPortsByGuid.remove(portId);
+		if(vPortsByGuid.containsKey(portId)) {
+		
+			if(vPortsByGuid.get(portId) != null){
+				vPortsByGuid.remove(portId);
+			}
 		}
 		
 		OFMTunnelManager tm = new OFMTunnelManager();
