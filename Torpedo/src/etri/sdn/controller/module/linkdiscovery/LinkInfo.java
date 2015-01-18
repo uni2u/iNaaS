@@ -16,11 +16,13 @@
 
 package etri.sdn.controller.module.linkdiscovery;
 
+
 import java.util.Set;
 
 import org.projectfloodlight.openflow.protocol.OFPortState;
 
 import etri.sdn.controller.module.linkdiscovery.ILinkDiscovery.LinkType;
+
 
 public class LinkInfo {
 

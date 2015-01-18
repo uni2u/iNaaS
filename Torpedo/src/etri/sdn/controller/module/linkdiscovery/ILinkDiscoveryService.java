@@ -17,10 +17,12 @@
 
 package etri.sdn.controller.module.linkdiscovery;
 
+
 import java.util.List;
 import java.util.Set;
 
 import etri.sdn.controller.IService;
+
 
 /**
  * This interface is used to define a service that 
@@ -53,6 +55,8 @@ public interface ILinkDiscoveryService extends IService {
      */
     public List getSwitchLinks(Long switchId);
 
+    public PrettyLink getOutLink(Long switchId, int outPort);
+    
     /**
      * Adds a listener to listen for ILinkDiscoveryService messages
      * @param listener The listener that wants the notifications

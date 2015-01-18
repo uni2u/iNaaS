@@ -12,8 +12,10 @@ import java.util.List;
 import org.codehaus.jackson.JsonFactory;
 import org.codehaus.jackson.JsonGenerator;
 import org.codehaus.jackson.JsonNode;
+import org.codehaus.jackson.map.MappingJsonFactory;
 import org.codehaus.jackson.map.ObjectMapper;
 import org.codehaus.jackson.map.module.SimpleModule;
+import org.codehaus.jackson.type.TypeReference;
 import org.joda.time.Interval;
 import org.joda.time.Period;
 import org.projectfloodlight.openflow.protocol.OFAggregateStatsRequest;
@@ -39,6 +41,7 @@ import org.restlet.data.MediaType;
 import org.restlet.data.Method;
 
 import etri.sdn.controller.OFModel;
+import etri.sdn.controller.module.linkdiscovery.PrettyLink;
 import etri.sdn.controller.protocol.OFProtocol;
 import etri.sdn.controller.protocol.io.IOFSwitch;
 import etri.sdn.controller.protocol.rest.serializer.ModuleListSerializerModule;
@@ -46,6 +49,7 @@ import etri.sdn.controller.protocol.rest.serializer.OFFeaturesReplySerializerMod
 import etri.sdn.controller.protocol.rest.serializer.OFFlowStatisticsReplySerializerModule;
 import etri.sdn.controller.protocol.rest.serializer.OFTypeSerializerModule;
 import etri.sdn.controller.util.StackTrace;
+
 
 /**
  * Model that represents the internal data of {@link OFMStateManager}. 
@@ -720,6 +724,7 @@ public class State extends OFModel {
 							matchMap = (HashMap<String, String>) mapper.readValue(matchNode.toString().getBytes(), HashMap.class);
 						} catch (Exception e) {
 							OFMStateManager.logger.error("error={}", StackTrace.of(e));
+//							e.printStackTrace();
 							return;
 						}
 						HashMap<String, Object> rr = new  HashMap<String, Object>();
@@ -912,6 +917,102 @@ public class State extends OFModel {
 			}
 		),
 		
+		
+		/**
+		 * This object is to implement a REST handler 
+		 * for retrieving module information (list of modules)
+		 */
+		new RESTApi(
+			"/wm/core/switch/{switchid}/matchedoutpath/json",
+			new Restlet() {
+				@Override
+				public void handle(Request request, Response response) {
+					MappingJsonFactory f = new MappingJsonFactory();	
+					ObjectMapper mapper = new ObjectMapper(f);
+					String req = request.getEntityAsText();
+					String switchIdStr = (String) request.getAttributes().get("switchid");
+					Long switchId = HexString.toLong(switchIdStr);
+//					HashMap<String, String> rr = new  HashMap<String, String>();
+//					IOFSwitch sw = manager.getController().getSwitch(switchId);
+					try {
+						HashMap<String, HashMap<String, String>> matchMap = mapper.readValue(req, new TypeReference<HashMap<String, HashMap<String, String>>>() {});
+						
+						List<PrettyLink> links = manager.getOutGoingPath (switchId, matchMap.get("match"));
+						 
+						ObjectMapper om = new ObjectMapper();
+						om.registerModule(new OFTypeSerializerModule());
+						String reply  = om.defaultPrettyPrintingWriter().writeValueAsString(links);
+						response.setEntity(reply, MediaType.APPLICATION_JSON);
+						
+					} catch ( Exception e ) {
+						e.printStackTrace();
+					
+					}
+				
+				}
+			}
+		),
+		
+		new RESTApi(
+				"/wm/core/switch/{switchid}/matchedinpath/json",
+				new Restlet() {
+					@Override
+					public void handle(Request request, Response response) {
+						MappingJsonFactory f = new MappingJsonFactory();	
+						ObjectMapper mapper = new ObjectMapper(f);
+						String req = request.getEntityAsText();
+						String switchIdStr = (String) request.getAttributes().get("switchid");
+						Long switchId = HexString.toLong(switchIdStr);
+//						HashMap<String, String> rr = new  HashMap<String, String>();
+//						IOFSwitch sw = manager.getController().getSwitch(switchId);
+						try {
+							HashMap<String, HashMap<String, String>> matchMap = mapper.readValue(req, new TypeReference<HashMap<String, HashMap<String, String>>>() {});
+							
+							List<PrettyLink> links = manager.getIncommingPath (switchId, matchMap.get("match"));
+							 
+							ObjectMapper om = new ObjectMapper();
+							om.registerModule(new OFTypeSerializerModule());
+							String reply  = om.defaultPrettyPrintingWriter().writeValueAsString(links);
+							response.setEntity(reply, MediaType.APPLICATION_JSON);
+							
+						} catch ( Exception e ) {
+							e.printStackTrace();
+						
+						}
+					
+					}
+				}
+			),
+			new RESTApi(
+					"/wm/core/switch/{switchid}/matchedpath/json",
+					new Restlet() {
+						@Override
+						public void handle(Request request, Response response) {
+							MappingJsonFactory f = new MappingJsonFactory();	
+							ObjectMapper mapper = new ObjectMapper(f);
+							String req = request.getEntityAsText();
+							String switchIdStr = (String) request.getAttributes().get("switchid");
+							Long switchId = HexString.toLong(switchIdStr);
+//							HashMap<String, String> rr = new  HashMap<String, String>();
+//							IOFSwitch sw = manager.getController().getSwitch(switchId);
+							try {
+								HashMap<String, HashMap<String, String>> matchMap = mapper.readValue(req, new TypeReference<HashMap<String, HashMap<String, String>>>() {});
+								
+								List<PrettyLink> links = manager.getPath (switchId, matchMap.get("match"));
+								 
+								ObjectMapper om = new ObjectMapper();
+								om.registerModule(new OFTypeSerializerModule());
+								String reply  = om.defaultPrettyPrintingWriter().writeValueAsString(links);
+								response.setEntity(reply, MediaType.APPLICATION_JSON);
+								
+							} catch ( Exception e ) {
+								e.printStackTrace();
+							
+							}
+						
+						}
+					}
+				),
 		/**
 		 * This object is to implement a REST handler 
 		 * that exports memory status. 

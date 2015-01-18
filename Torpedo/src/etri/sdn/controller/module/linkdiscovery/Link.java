@@ -17,8 +17,10 @@
 
 package etri.sdn.controller.module.linkdiscovery;
 
+
 import org.projectfloodlight.openflow.types.OFPort;
 import org.projectfloodlight.openflow.util.HexString;
+
 
 /**
  * This class represents a Link.

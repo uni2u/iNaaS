@@ -3,10 +3,13 @@ package etri.sdn.controller.module.linkdiscovery;
 
 import java.nio.ByteBuffer;
 
+import org.codehaus.jackson.annotate.JsonIgnore;
 import org.codehaus.jackson.annotate.JsonProperty;
 import org.projectfloodlight.openflow.types.OFPort;
+import org.projectfloodlight.openflow.util.HexString;
 
-class PrettyLink {
+
+public class PrettyLink {
 	@JsonProperty("src-switch")
 	public String srcdpid;
 	
@@ -26,7 +29,7 @@ class PrettyLink {
 //	public Set<OFPortState> dststatus;
 	
 //	public String type;
-	
+
 	public PrettyLink (Link l) {
 		byte[] bDPID = ByteBuffer.allocate(8).putLong(l.getSrc()).array();
 		this.srcdpid = String.format("%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x",
@@ -38,11 +41,38 @@ class PrettyLink {
 		
 		this.srcport = l.getSrcPort();
 		this.dstport = l.getDstPort();
-		
 //		LinkInfo linkInfo = links.get( l );
 //		this.srcstatus = linkInfo.getSrcPortState();
 //		this.dststatus = linkInfo.getDstPortState();
 //		this.type = linkInfo.getLinkType().toString();
+	}
+	public PrettyLink () {}
+	
+	@JsonIgnore
+	public OFPort getSrcPort() {
+		return this.srcport;
+	}
+	@JsonIgnore
+	public OFPort getDstPort() {
+		return this.dstport;
+	}
+	@JsonIgnore
+	public long getDstSwitch() {
+		return HexString.toLong(dstdpid);
+	}
+	@JsonIgnore
+	public long getSrcSwitch() {
+		return HexString.toLong(srcdpid);
+	}
+	@JsonIgnore
+	public PrettyLink getReverseLink() {
+		PrettyLink link = new PrettyLink();
+		link.srcdpid = this.dstdpid;
+		link.dstdpid = this.srcdpid;
+		link.srcport = this.dstport;
+		link.dstport = this.srcport;
+		
+		return link;
 	}
 }
 

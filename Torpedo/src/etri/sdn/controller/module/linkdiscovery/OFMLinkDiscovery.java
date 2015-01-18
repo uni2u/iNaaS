@@ -1,5 +1,6 @@
 package etri.sdn.controller.module.linkdiscovery;
 
+
 import java.net.InetAddress;
 import java.net.NetworkInterface;
 import java.nio.ByteBuffer;
@@ -44,6 +45,7 @@ import etri.sdn.controller.OFModel;
 import etri.sdn.controller.OFModule;
 import etri.sdn.controller.module.linkdiscovery.ILinkDiscoveryListener.LDUpdate;
 import etri.sdn.controller.module.linkdiscovery.ILinkDiscoveryListener.UpdateOperation;
+import etri.sdn.controller.module.linkdiscovery.Links.RESTLink;
 import etri.sdn.controller.protocol.OFProtocol;
 import etri.sdn.controller.protocol.io.Connection;
 import etri.sdn.controller.protocol.io.IOFHandler.Role;
@@ -54,6 +56,7 @@ import etri.sdn.controller.protocol.packet.Ethernet;
 import etri.sdn.controller.protocol.packet.IPv4;
 import etri.sdn.controller.protocol.packet.LLDP;
 import etri.sdn.controller.protocol.packet.LLDPTLV;
+
 
 /**
  * Link Discovery Module.
@@ -1146,7 +1149,18 @@ public class OFMLinkDiscovery extends OFModule implements ILinkDiscoveryService 
 		}		
 		return list;
 	}
-
+	
+	@Override
+	public PrettyLink getOutLink(Long switchId, int outPort) {
+		List<PrettyLink> links = getSwitchLinks(switchId);
+		for (PrettyLink l : links) {
+			if (l.getSrcPort().getPortNumber() == outPort) {
+				return l;
+			}
+		}		
+		return null;
+	}
+	
 	@Override
 	public Set<NodePortTuple> getSuppressLLDPsInfo() {
 		// TODO Auto-generated method stub

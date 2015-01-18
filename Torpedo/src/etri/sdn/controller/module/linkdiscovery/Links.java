@@ -1,5 +1,6 @@
 package etri.sdn.controller.module.linkdiscovery;
 
+
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.EnumSet;
@@ -29,6 +30,7 @@ import etri.sdn.controller.OFModel;
 import etri.sdn.controller.module.linkdiscovery.ILinkDiscoveryListener.UpdateOperation;
 import etri.sdn.controller.protocol.io.IOFSwitch;
 import etri.sdn.controller.protocol.rest.serializer.OFTypeSerializerModule;
+
 
 /**
  * Model of the module {@link OFMLinkDiscovery}

@@ -17,11 +17,13 @@
 
 package etri.sdn.controller.module.linkdiscovery;
 
+
 import org.projectfloodlight.openflow.types.OFPort;
 import org.projectfloodlight.openflow.util.HexString;
 
 import etri.sdn.controller.module.linkdiscovery.ILinkDiscovery.LinkType;
 import etri.sdn.controller.protocol.io.IOFSwitch.SwitchType;
+
 
 /**
  * The user classes of ILinkDiscoveryService should implement this interface.

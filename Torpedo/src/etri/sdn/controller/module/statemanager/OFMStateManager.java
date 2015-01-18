@@ -3,9 +3,11 @@ package etri.sdn.controller.module.statemanager;
 
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 
+import org.projectfloodlight.openflow.protocol.OFActionType;
 import org.projectfloodlight.openflow.protocol.OFAggregateStatsRequest;
 import org.projectfloodlight.openflow.protocol.OFFactories;
 import org.projectfloodlight.openflow.protocol.OFFactory;
@@ -14,12 +16,14 @@ import org.projectfloodlight.openflow.protocol.OFFlowStatsReply;
 import org.projectfloodlight.openflow.protocol.OFFlowStatsRequest;
 import org.projectfloodlight.openflow.protocol.OFMessage;
 import org.projectfloodlight.openflow.protocol.OFStatsReply;
+import org.projectfloodlight.openflow.protocol.action.OFAction;
+import org.projectfloodlight.openflow.protocol.action.OFActionOutput;
 import org.projectfloodlight.openflow.protocol.match.Match;
 import org.projectfloodlight.openflow.protocol.match.MatchField;
 import org.projectfloodlight.openflow.types.EthType;
 import org.projectfloodlight.openflow.types.IPv4Address;
-import org.projectfloodlight.openflow.types.IpProtocol;
 import org.projectfloodlight.openflow.types.IpDscp;
+import org.projectfloodlight.openflow.types.IpProtocol;
 import org.projectfloodlight.openflow.types.MacAddress;
 import org.projectfloodlight.openflow.types.OFGroup;
 import org.projectfloodlight.openflow.types.OFPort;
@@ -27,6 +31,7 @@ import org.projectfloodlight.openflow.types.OFVlanVidMatch;
 import org.projectfloodlight.openflow.types.TableId;
 import org.projectfloodlight.openflow.types.TransportPort;
 import org.projectfloodlight.openflow.types.VlanPcp;
+import org.projectfloodlight.openflow.util.HexString;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -37,7 +42,10 @@ import etri.sdn.controller.OFModule;
 import etri.sdn.controller.protocol.OFProtocol;
 import etri.sdn.controller.protocol.io.Connection;
 import etri.sdn.controller.protocol.io.IOFSwitch;
+import etri.sdn.controller.module.linkdiscovery.ILinkDiscoveryService;
+import etri.sdn.controller.module.linkdiscovery.PrettyLink;
 import etri.sdn.controller.util.StackTrace;
+
 
 /**
  * This module does not handle any OFMessage.
@@ -54,6 +62,7 @@ import etri.sdn.controller.util.StackTrace;
 public class OFMStateManager extends OFModule implements IStateService{
 	
 	private OFProtocol protocol;
+	private ILinkDiscoveryService linkDiscoveryService;
 	
 	static final Logger logger = LoggerFactory.getLogger(OFMStateManager.class);
 	
@@ -70,6 +79,7 @@ public class OFMStateManager extends OFModule implements IStateService{
 	protected void initialize() {
 		state = new State(this);
 		protocol = (OFProtocol)getController().getProtocol();
+		linkDiscoveryService = (ILinkDiscoveryService) getModule(ILinkDiscoveryService.class);
 	}
 
 	/**
@@ -320,6 +330,115 @@ public class OFMStateManager extends OFModule implements IStateService{
 		return resultValues;
 	}
 	
+
+	public List<PrettyLink> getOutLinks(Long switchId, List<OFFlowStatsEntry> flowEntries) {
+		
+		List<PrettyLink> links = new LinkedList<PrettyLink>();
+		HashSet<Integer> ports = new HashSet<Integer>();
+		PrettyLink link;
+		
+		for (OFFlowStatsEntry entry : flowEntries) {
+			for (OFAction action : entry.getActions()) {
+				if (action.getType().equals(OFActionType.OUTPUT)) {
+//					System.out.println("ACtion " + action);
+					OFActionOutput actionoutput = (OFActionOutput) action;
+					int outPortNumber = actionoutput.getPort().getPortNumber();
+					link = linkDiscoveryService.getOutLink(switchId, outPortNumber);
+//					System.out.println("LINK " + link);
+					if (link != null && ports.add(outPortNumber)) {
+						links.add(link);			
+					}
+				}
+			}
+		}
+		return links;
+	}
+	
+	
+	public List<PrettyLink> getOutGoingPath(Long switchId, HashMap<String, String> matchMap) {
+		IOFSwitch sw = getController().getSwitch(switchId);
+		List<PrettyLink> returnedLinks = new java.util.LinkedList<PrettyLink>();
+		if ( sw == null ) {
+			return returnedLinks;		// switch is not completely set up.
+		}
+		
+		List<OFFlowStatsEntry> flows = getFlows(switchId, matchMap);
+		List<PrettyLink> outLinks = getOutLinks(switchId, flows);
+		returnedLinks.addAll(outLinks);
+		for (PrettyLink l : outLinks) {
+			Long dstSwitch = l.getDstSwitch();
+			int dstPort = l.getDstPort().getPortNumber();
+			matchMap.remove("in_port");
+			matchMap.put("in_port", new Integer(dstPort).toString());
+			List<PrettyLink> links = getOutGoingPath(dstSwitch, matchMap);
+			returnedLinks.addAll(links);
+		}
+		return returnedLinks;
+	}
+	
+	public List<PrettyLink> getIncommingLinks(Long switchId, List<OFFlowStatsEntry> flowEntries) {
+		
+		List<PrettyLink> links = new LinkedList<PrettyLink>();
+		HashSet<Integer> ports = new HashSet<Integer>();
+		PrettyLink link = null;
+		
+		for (OFFlowStatsEntry entry : flowEntries) {
+			Match match = entry.getMatch();
+			OFPort inPort = match.get(MatchField.IN_PORT);
+			System.out.println("============ sw: " + HexString.toHexString(switchId) + " flow:  " + entry + " inPort: " + inPort );
+			if (inPort != null) {
+				link = linkDiscoveryService.getOutLink(switchId, inPort.getPortNumber());
+//					System.out.println("LINK " + link.getSrcSwitch());
+			}
+			if (link != null && ports.add(inPort.getPortNumber())) {
+				links.add(link.getReverseLink());			
+			}
+		}
+		
+		return links;
+	}
+	
+	public List<PrettyLink> getIncommingPath (Long switchId, HashMap<String, String> matchMap) {
+		IOFSwitch sw = getController().getSwitch(switchId);
+		List<PrettyLink> returnedLinks = new java.util.LinkedList<PrettyLink>();
+		if ( sw == null ) {
+			return returnedLinks;		// switch is not completely set up.
+		}
+		
+		List<OFFlowStatsEntry> flows = getFlows(switchId, matchMap);
+		flows = getFlows(switchId, matchMap);
+
+		List<PrettyLink> inLinks = getIncommingLinks(switchId, flows);
+		returnedLinks.addAll(inLinks);
+		for (PrettyLink l : inLinks) {
+			Long connectedSw = l.getSrcSwitch();
+//			int dstPort = l.getDstPort().getPortNumber();
+			matchMap.remove("in_port");
+//			matchMap.put("in_port", new Integer(dstPort).toString());
+			if (connectedSw != null) {
+				List<PrettyLink> links = getIncommingPath(connectedSw, matchMap);
+				returnedLinks.addAll(links);
+			}
+		}
+		return returnedLinks;
+		
+	}
+	
+	public List<PrettyLink> getPath (Long switchId, HashMap<String, String> matchMap) {
+		IOFSwitch sw = getController().getSwitch(switchId);
+		List<PrettyLink> path =  new java.util.LinkedList<PrettyLink>();
+		if ( sw == null ) {
+			return path;		// switch is not completely set up.
+		}
+		
+		List<PrettyLink> inPath = getIncommingPath(switchId, matchMap);
+		List<PrettyLink> outPath = getOutGoingPath(switchId, matchMap);
+		path.addAll(inPath);
+		path.addAll(outPath);
+	
+		
+		return path;
+	}
 	
 	public Match getMatch(IOFSwitch switchId, HashMap<String, String> matchMap) {
 		
@@ -377,7 +496,7 @@ public class OFMStateManager extends OFModule implements IStateService{
 			return null;
 		}
 		return builder.build();
-	}
+	}	
 	
 	@Override
 	public List<OFStatsReply> getAggregate(Long switchId) {
@@ -385,5 +504,4 @@ public class OFMStateManager extends OFModule implements IStateService{
 		
 		return null;
 	}
-
 }
