@@ -287,7 +287,21 @@ public class OFMiNaaSTopoManager extends OFModule implements IOFMiNaaSTopoManage
 				vmlist.append(",{");
 			}
 			vmlist.append("\"vm_id\":\""+vmEntry.getKey()+"\",");
-			vmlist.append("\"connected_host\":\""+vmEntry.getValue().get(0).binding_host_id+"\",");
+			vmlist.append("\"connected_host\":\""+vmEntry.getValue().get(0).binding_host_id+"\",");			
+			
+			// added : vmlist into vm attach mac address
+			for(IDevice deviceEntry : device.getAllDevices()) {
+				if(deviceEntry.getIPv4Addresses().length > 0) {
+					String host_ip = IPv4.fromIPv4Address(deviceEntry.getIPv4Addresses()[0]);
+					String host_name = tunnelManager.getNodeInfo().containsKey(host_ip) ? tunnelManager.getNodeInfo().get(host_ip).node_name : tunnelManager.getHostName(host_ip);
+					String host_mac = deviceEntry.getMACAddressString();
+
+					if(host_name.equals(vmEntry.getValue().get(0).binding_host_id)) {
+						vmlist.append("\"connected_mac\":\""+host_mac+"\",");
+					}
+				}
+			}
+			
 			vmlist.append("\"vnics\":[");
 			int vnicCnt = 0;
 			for(PortDefinition port : vmEntry.getValue()) {
