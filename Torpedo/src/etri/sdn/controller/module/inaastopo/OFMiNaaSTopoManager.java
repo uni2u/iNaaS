@@ -164,24 +164,27 @@ public class OFMiNaaSTopoManager extends OFModule implements IOFMiNaaSTopoManage
 				String host_mac = deviceEntry.getMACAddressString();
 				
 				if(!tunnelManager.getVmByIp().containsKey(host_ip)) {
-					if(hostCnt == 0) {
-						hostlist.append("{");
-					} else {
-						hostlist.append(",{");
+					if(!host_ip.equals(host_name)) {
+						if(hostCnt == 0) {
+							hostlist.append("{");
+						} else {
+							hostlist.append(",{");
+						}
+						
+						hostlist.append("\"host_ip\":\""+host_ip+"\",");
+						hostlist.append("\"host_name\":\""+host_name+"\",");
+						hostlist.append("\"mac\":\""+host_mac+"\",");
+						if(deviceEntry.getAttachmentPoints().length > 0) {
+							hostlist.append("\"connected_sw\":\""+HexString.toHexString(deviceEntry.getAttachmentPoints()[0].getSwitchDPID())+"\",");
+							hostlist.append("\"connected_port\":"+deviceEntry.getAttachmentPoints()[0].getPort().getPortNumber());
+						} else {
+							hostlist.append("\"connected_sw\":\"\",");
+							hostlist.append("\"connected_port\":\"\"");
+						}
+						hostlist.append("}");
+						
+						hostCnt++;
 					}
-					hostlist.append("\"host_ip\":\""+host_ip+"\",");
-					hostlist.append("\"host_name\":\""+host_name+"\",");
-					hostlist.append("\"mac\":\""+host_mac+"\",");
-					if(deviceEntry.getAttachmentPoints().length > 0) {
-						hostlist.append("\"connected_sw\":\""+HexString.toHexString(deviceEntry.getAttachmentPoints()[0].getSwitchDPID())+"\",");
-						hostlist.append("\"connected_port\":"+deviceEntry.getAttachmentPoints()[0].getPort().getPortNumber());
-					} else {
-						hostlist.append("\"connected_sw\":\"\",");
-						hostlist.append("\"connected_port\":\"\"");
-					}
-					hostlist.append("}");
-					
-					hostCnt++;
 				}
 			}
 		}
