@@ -9,6 +9,7 @@ import org.projectfloodlight.openflow.protocol.OFType;
 import etri.sdn.controller.MessageContext;
 import etri.sdn.controller.OFController;
 import etri.sdn.controller.OFModule;
+import etri.sdn.controller.module.connectionmonitor.OFMConnectionMonitor;
 import etri.sdn.controller.module.devicemanager.OFMDefaultEntityClassifier;
 import etri.sdn.controller.module.devicemanager.OFMDeviceManager;
 import etri.sdn.controller.module.firewall.OFMFirewall;
@@ -41,6 +42,7 @@ public class BasiciNaaSController extends OFController {
 	private OFMTunnelManager m_tunnel_manager = new OFMTunnelManager();
 	private OFMiNaaSTopoManager m_inaas_topo = new OFMiNaaSTopoManager();
 	private OFVxlanFlowMappingManager<String, String> m_vxlanflowmapper_manager = new OFVxlanFlowMappingManager<String, String>();
+	private OFMConnectionMonitor m_connection_monitor = new OFMConnectionMonitor();
 	
 	private OFModule[] packet_in_pipeline = {  
 			m_link_discovery, 
@@ -50,7 +52,8 @@ public class BasiciNaaSController extends OFController {
 			m_firewall,
 			m_tunnel_manager,
 			m_vxlanflowmapper_manager,
-			m_forwarding
+			m_forwarding,
+			m_connection_monitor
 	};
 
 	public BasiciNaaSController(int num_of_queue, String role) {
@@ -76,6 +79,7 @@ public class BasiciNaaSController extends OFController {
 		m_forwarding.init(this);
 		m_staticflow.init(this);			// this is not a part of the pipeline.
 		m_inaas_topo.init(this);
+		m_connection_monitor.init(this);
 	}
 
 	@Override
@@ -111,6 +115,10 @@ public class BasiciNaaSController extends OFController {
 		}
 		else if ( t == OFType.FEATURES_REPLY ) {
 			return m_link_discovery.processHandshakeFinished( conn, context );
+		}
+		else if ( t == OFType.ECHO_REPLY ) {
+			List<OFMessage> out = new LinkedList<OFMessage>();
+			return m_connection_monitor.processMessage ( conn, context, m, out );
 		}
 //		else {
 //			System.err.println("Unhandled OF message: "	+ m.toString());
