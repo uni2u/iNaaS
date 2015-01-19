@@ -580,13 +580,13 @@ public class OFMOpenstackML2Connector extends OFModule implements IOpenstackML2C
 			}
 
 			if(port.flow_exec) {
-//				if("network:router_gateway".equals(device_owner) || "network:floatingip".equals(device_owner)) {
-//					vPortsByGuid.remove(portId);
-//				} else {
+				if("network:router_gateway".equals(device_owner) || "network:floatingip".equals(device_owner)) {
+					vPortsByGuid.remove(portId);
+				} else {
 					OFMTunnelManager tm = new OFMTunnelManager();
 					tm.create_port_flow(port);
 //					tm.create_port_flow(vPortsByGuid.get(portId));
-//				}
+				}
 			}
 		}		
 	}
@@ -595,13 +595,27 @@ public class OFMOpenstackML2Connector extends OFModule implements IOpenstackML2C
 	public void deletePort(String portId) {
 		
 		if(vPortsByGuid.containsKey(portId)) {
-		
-			if(vPortsByGuid.get(portId) != null){
+			
+			try {
+				OFMTunnelManager tm = new OFMTunnelManager();
+				tm.delete_port_flow(portId);
+				
 				vPortsByGuid.remove(portId);
+				Thread.sleep(100);
+			} catch (Exception e) {
+				logger.debug("DELETE PORT {} exception {}", portId, e.getMessage());
+			}
+		} else {
+			try {
+				logger.debug("DELETE PORT not supported portID {}", portId);
+				Thread.sleep(100);
+			} catch (Exception e) {
+				// TODO Auto-generated catch block
+				logger.debug("DELETE PORT exception {}", e.getMessage());
 			}
 		}
 		
-		OFMTunnelManager tm = new OFMTunnelManager();
-		tm.delete_port_flow(portId);
+//		OFMTunnelManager tm = new OFMTunnelManager();
+//		tm.delete_port_flow(portId);
 	}
 }
