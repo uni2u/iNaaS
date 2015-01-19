@@ -185,8 +185,13 @@ public class RestPort extends Restlet {
 
 			try {
 				jsonToPortDefinition(request.getEntityAsText(), port);
-				if(!"".equals(port.binding_host_id) && !"".equals(port.device_owner) && !"".equals(port.device_id) && !"".equals(port.network_id)) {
-					port.flow_exec = true;
+				
+				if("network:floatingip".equals(port.device_owner)) {
+				     port.flow_exec = true;
+				} else {
+					if(!"".equals(port.binding_host_id) && !"".equals(port.device_owner) && !"".equals(port.device_id) && !"".equals(port.network_id)) {
+						port.flow_exec = true;
+					}
 				}
 //				OFMOpenstackML2Connector.logger.debug("RestPort Request {}, JSON {}", m, request.getEntityAsText());
 			} catch (IOException e) {
