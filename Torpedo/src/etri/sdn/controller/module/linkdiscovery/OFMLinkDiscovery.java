@@ -45,7 +45,6 @@ import etri.sdn.controller.OFModel;
 import etri.sdn.controller.OFModule;
 import etri.sdn.controller.module.linkdiscovery.ILinkDiscoveryListener.LDUpdate;
 import etri.sdn.controller.module.linkdiscovery.ILinkDiscoveryListener.UpdateOperation;
-import etri.sdn.controller.module.linkdiscovery.Links.RESTLink;
 import etri.sdn.controller.protocol.OFProtocol;
 import etri.sdn.controller.protocol.io.Connection;
 import etri.sdn.controller.protocol.io.IOFHandler.Role;
