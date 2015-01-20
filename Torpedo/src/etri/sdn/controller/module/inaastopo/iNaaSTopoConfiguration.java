@@ -12,7 +12,9 @@ public class iNaaSTopoConfiguration extends OFModel {
 	public iNaaSTopoConfiguration(OFMiNaaSTopoManager parent) {
 		this.parent = parent;
 		this.apis = Arrays.asList(
-			new RESTApi(RestiNaaSTopo.iNaaSTopoAll, new RestiNaaSTopo(this))
+			new RESTApi(RestiNaaSTopo.iNaaSTopoAll, new RestiNaaSTopo(this)),
+			new RESTApi(RestVMInstance.iNaaSVMlist, new RestVMInstance(this)),
+			new RESTApi(RestVMToHostList.iNaaSHostlist, new RestVMToHostList(this))
 		).toArray( new RESTApi[0] );
 	}
 

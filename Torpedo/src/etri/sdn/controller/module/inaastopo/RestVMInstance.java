@@ -7,13 +7,13 @@ import org.restlet.data.MediaType;
 import org.restlet.data.Method;
 import org.restlet.data.Status;
 
-public class RestiNaaSTopo extends Restlet {
+public class RestVMInstance extends Restlet {
 	
-	static String iNaaSTopoAll = "/wm/inaas/topology/json";
+	static String iNaaSVMlist = "/wm/inaas/topology/vm/{portMac}";
 	
 	private iNaaSTopoConfiguration parent = null;
 
-	RestiNaaSTopo(iNaaSTopoConfiguration parent) {
+	RestVMInstance(iNaaSTopoConfiguration parent) {
 		this.parent = parent;
 	}
 
@@ -26,9 +26,12 @@ public class RestiNaaSTopo extends Restlet {
 
 		Method m = request.getMethod();
 		
+		String portMac = request.getAttributes().get("portMac") == null ? "" : (String) request.getAttributes().get("portMac");
+		
 		if (m == Method.GET) {
-			response.setEntity(parent.getModule().getINaaSTopoAll(), MediaType.APPLICATION_JSON);
-			response.setStatus(Status.SUCCESS_OK);			
+			response.setEntity(parent.getModule().getVmInstance(portMac), MediaType.APPLICATION_JSON);
+			response.setStatus(Status.SUCCESS_OK);
+			
 		}
 	}
 }

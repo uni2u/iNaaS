@@ -362,4 +362,82 @@ public class OFMiNaaSTopoManager extends OFModule implements IOFMiNaaSTopoManage
 		
 		return vmlist.toString();
 	}
+
+	public String getVmInstance(String portMac) {
+		StringBuffer vmInstance = new StringBuffer();
+
+		for (Entry<String, PortDefinition> portEntry : tunnelManager.getVmByGuid().entrySet()) {
+
+			if (portMac.equals(portEntry.getValue().mac_address)) {
+				vmInstance.append("{");
+				vmInstance.append("\"vm_id\":\"" + portEntry.getValue().device_id + "\",");
+				vmInstance.append("\"connected_host\":\"" + portEntry.getValue().binding_host_id + "\",");
+
+				for (IDevice deviceEntry : device.getAllDevices()) {
+					if (deviceEntry.getIPv4Addresses().length > 0) {
+						String host_ip = IPv4.fromIPv4Address(deviceEntry.getIPv4Addresses()[0]);
+						String host_name = tunnelManager.getNodeInfo().containsKey(host_ip) ? tunnelManager.getNodeInfo().get(host_ip).node_name: tunnelManager.getHostName(host_ip);
+						String host_mac = deviceEntry.getMACAddressString();
+						if (host_name.equals(portEntry.getValue().binding_host_id)) {
+							vmInstance.append("\"connected_mac\":\"" + host_mac	+ "\",");
+						}
+					}
+				}
+
+				vmInstance.append("\"vnics\":[");
+				vmInstance.append("{");
+				vmInstance.append("\"mac\":\"" + portEntry.getValue().mac_address + "\",");
+				String vm_ip = "";
+				String subnet_id = "";
+				if (portEntry.getValue().fixed_ips.size() > 0) {
+					vm_ip = portEntry.getValue().fixed_ips.get(0).get("ip_address");
+					subnet_id = portEntry.getValue().fixed_ips.get(0).get("subnet_id");
+				}
+				vmInstance.append("\"vm_ip\":\"" + vm_ip + "\",");
+				vmInstance.append("\"tenant_id\":\"" + portEntry.getValue().tenant_id + "\",");
+				vmInstance.append("\"network_id\":\"" + portEntry.getValue().network_id + "\",");
+				vmInstance.append("\"subnet_id\":\"" + subnet_id + "\",");
+				vmInstance.append("\"port_id\":\"" + portEntry.getValue().portId + "\"");
+				vmInstance.append("}");
+				vmInstance.append("]");
+				vmInstance.append("}");
+			}
+		}
+
+		return vmInstance.toString();
+	}
+	
+	public String getVMportToHost(String portMac) {
+		StringBuffer hostConnection = new StringBuffer();
+		
+		for (Entry<String, PortDefinition> portEntry : tunnelManager.getVmByGuid().entrySet()) {
+
+			if (portMac.equals(portEntry.getValue().mac_address)) {				
+				for(IDevice deviceEntry : device.getAllDevices()) {
+					String host_ip = IPv4.fromIPv4Address(deviceEntry.getIPv4Addresses()[0]);
+					String host_name = tunnelManager.getNodeInfo().containsKey(host_ip) ? tunnelManager.getNodeInfo().get(host_ip).node_name : tunnelManager.getHostName(host_ip);
+					String host_mac = deviceEntry.getMACAddressString();
+					
+					if (host_name.equals(portEntry.getValue().binding_host_id)) {					
+						hostConnection.append("{");
+						hostConnection.append("\"host_ip\":\"" + host_ip + "\",");
+						hostConnection.append("\"host_name\":\"" + portEntry.getValue().binding_host_id + "\",");
+						hostConnection.append("\"mac\":\""+host_mac+"\",");
+						
+						if(deviceEntry.getAttachmentPoints().length > 0) {
+							hostConnection.append("\"connected_sw\":\""+HexString.toHexString(deviceEntry.getAttachmentPoints()[0].getSwitchDPID())+"\",");
+							hostConnection.append("\"connected_port\":"+deviceEntry.getAttachmentPoints()[0].getPort().getPortNumber());
+						} else {
+							hostConnection.append("\"connected_sw\":\"\",");
+							hostConnection.append("\"connected_port\":\"\"");
+						}
+						hostConnection.append("}");
+					}
+					
+				}
+			}
+		}
+		
+		return hostConnection.toString();
+	}
 }
