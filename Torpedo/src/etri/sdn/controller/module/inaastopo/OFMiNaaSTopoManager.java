@@ -421,7 +421,7 @@ public class OFMiNaaSTopoManager extends OFModule implements IOFMiNaaSTopoManage
 					if (host_name.equals(portEntry.getValue().binding_host_id)) {					
 						hostConnection.append("{");
 						hostConnection.append("\"host_ip\":\"" + host_ip + "\",");
-						hostConnection.append("\"host_name\":\"" + portEntry.getValue().binding_host_id + "\",");
+						hostConnection.append("\"host_name\":\"" + host_name + "\",");
 						hostConnection.append("\"mac\":\""+host_mac+"\",");
 						
 						if(deviceEntry.getAttachmentPoints().length > 0) {
