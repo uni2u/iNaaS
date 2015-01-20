@@ -126,7 +126,8 @@ public class RestSubnet extends Restlet {
 			SubnetDefinition subnet = new SubnetDefinition();
 			
 			try {
-				jsonToSubnetDefinition(request.getEntityAsText(), subnet);		
+				jsonToSubnetDefinition(request.getEntityAsText(), subnet);	
+				OFMOpenstackML2Connector.logger.debug("RestSubnet Create Subnet JSON {}", request);
 			} catch (IOException e) {
 				OFMOpenstackML2Connector.logger.error("RestSubnet Could not parse JSON {}", e.getMessage());
 			}
@@ -157,6 +158,7 @@ public class RestSubnet extends Restlet {
 			if (subUUID != null) {
 				parent.getModule().deleteSubnet(subUUID);
 				response.setStatus(Status.SUCCESS_OK);
+				OFMOpenstackML2Connector.logger.debug("DELETE RestSubnet UUID {} SUCCESS_OK", subUUID);
 			} else {
 				OFMOpenstackML2Connector.logger.error("ERROR!!! DELETE RestSubnet : SubnetID is NULL");
 				response.setStatus(Status.CLIENT_ERROR_BAD_REQUEST);

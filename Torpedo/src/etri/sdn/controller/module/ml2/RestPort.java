@@ -193,7 +193,7 @@ public class RestPort extends Restlet {
 						port.flow_exec = true;
 					}
 				}
-//				OFMOpenstackML2Connector.logger.debug("RestPort Request {}, JSON {}", m, request.getEntityAsText());
+				OFMOpenstackML2Connector.logger.debug("RestPort Request {}, JSON {}", m, request.getEntityAsText());
 			} catch (IOException e) {
 				OFMOpenstackML2Connector.logger.error("RestPort Could not parse JSON {}", e.getMessage());
 			}
@@ -225,9 +225,9 @@ public class RestPort extends Restlet {
 		} else if (m == Method.DELETE) {
 
 			if (portUUID != null) {
-				OFMOpenstackML2Connector.logger.debug("DELETE RestPort UUID {}", portUUID);
 				parent.getModule().deletePort(portUUID);
 				response.setStatus(Status.SUCCESS_OK);
+				OFMOpenstackML2Connector.logger.debug("DELETE RestPort UUID {} SUCCESS_OK", portUUID);
 			} else {
 				OFMOpenstackML2Connector.logger.error("ERROR!!! DELETE RestPort : PortID is NULL");
 				response.setStatus(Status.CLIENT_ERROR_BAD_REQUEST);

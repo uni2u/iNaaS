@@ -97,6 +97,7 @@ public class RestNetwork extends Restlet {
 			NetworkDefinition network = new NetworkDefinition();
 			try {			
 				jsonToNetworkDefinition(request.getEntityAsText(), network);
+				OFMOpenstackML2Connector.logger.debug("RestNetwork Create Network JSON {}", request);
 			} catch (IOException e) {
 				OFMOpenstackML2Connector.logger.error("RestNetwork Could not parse JSON {}", e.getMessage());
 			}
@@ -128,6 +129,7 @@ public class RestNetwork extends Restlet {
 			if (netUUID != null) {
 				parent.getModule().deleteNetwork(netUUID);
 				response.setStatus(Status.SUCCESS_OK);
+				OFMOpenstackML2Connector.logger.debug("DELETE RestNetwork UUID {} SUCCESS_OK", netUUID);
 			} else {
 				OFMOpenstackML2Connector.logger.error("ERROR!!! DELETE RestNetwork : NetworkID is NULL");
 				response.setStatus(Status.CLIENT_ERROR_BAD_REQUEST);

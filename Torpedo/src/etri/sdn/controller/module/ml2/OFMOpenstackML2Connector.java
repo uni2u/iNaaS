@@ -142,7 +142,7 @@ public class OFMOpenstackML2Connector extends OFModule implements IOpenstackML2C
 			}
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
-			e.printStackTrace();
+			logger.error("getVxlanIDtoNetwork call Exception {}", e.getMessage());
 		}
 		
 		return vNetId;
@@ -170,7 +170,7 @@ public class OFMOpenstackML2Connector extends OFModule implements IOpenstackML2C
 			}
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
-			e.printStackTrace();
+			logger.error("getVxlanIDtoTenant call Exception {}", e.getMessage());
 		}
 		
 		return vTenantId;
@@ -436,7 +436,7 @@ public class OFMOpenstackML2Connector extends OFModule implements IOpenstackML2C
 //		}
 		
 		if(vSubsByGuid.get(subId) != null){
-			logger.debug("Deleting subnet with ID {}", subId);
+			logger.debug("deleteSubnet subnet with ID {}", subId);
 			vSubsByGuid.remove(subId);
 		}
 		
@@ -603,15 +603,15 @@ public class OFMOpenstackML2Connector extends OFModule implements IOpenstackML2C
 				vPortsByGuid.remove(portId);
 				Thread.sleep(100);
 			} catch (Exception e) {
-				logger.debug("DELETE PORT {} exception {}", portId, e.getMessage());
+				logger.debug("deletePort with PORT_ID {} exception {}", portId, e.getMessage());
 			}
 		} else {
 			try {
-				logger.debug("DELETE PORT not supported portID {}", portId);
+				logger.debug("deletePort with PORT_ID not supported", portId);
 				Thread.sleep(100);
 			} catch (Exception e) {
 				// TODO Auto-generated catch block
-				logger.debug("DELETE PORT exception {}", e.getMessage());
+				logger.debug("deletePort with PORT_ID NULL!! exception {}", e.getMessage());
 			}
 		}
 		
