@@ -3,13 +3,11 @@ package etri.sdn.controller.module.statemanager;
 
 import java.io.IOException;
 import java.io.StringWriter;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Calendar;
 import java.util.HashMap;
 import java.util.List;
 import java.util.LinkedList;
-import java.util.Map;
 
 import org.codehaus.jackson.JsonFactory;
 import org.codehaus.jackson.JsonGenerator;
@@ -44,8 +42,6 @@ import org.restlet.data.Method;
 
 import etri.sdn.controller.OFModel;
 import etri.sdn.controller.module.linkdiscovery.PrettyLink;
-import etri.sdn.controller.module.staticentrymanager.StaticFlowEntry;
-import etri.sdn.controller.module.staticentrymanager.StaticFlowEntryException;
 import etri.sdn.controller.protocol.OFProtocol;
 import etri.sdn.controller.protocol.io.IOFSwitch;
 import etri.sdn.controller.protocol.rest.serializer.ModuleListSerializerModule;
