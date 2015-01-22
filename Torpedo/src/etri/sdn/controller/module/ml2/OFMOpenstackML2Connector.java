@@ -618,4 +618,9 @@ public class OFMOpenstackML2Connector extends OFModule implements IOpenstackML2C
 //		OFMTunnelManager tm = new OFMTunnelManager();
 //		tm.delete_port_flow(portId);
 	}
+	
+	@Override
+	public Map<String, VirtualPort> getVPortsByGuid() {
+		return vPortsByGuid;
+	}
 }

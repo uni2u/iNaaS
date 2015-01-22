@@ -131,13 +131,13 @@ public class RestPort extends Restlet {
 			if (pInfo.get("id") != null) {
 				port.portId = pInfo.get("id").toString();
 			}
-			if (pInfo.get("security_groups") != null) {
-				ObjectMapper omedo = new ObjectMapper();
-				port.security_groups = omedo.readValue(
-						omedo.writeValueAsString(pInfo.get("security_groups")),
-						new TypeReference<List<Map<String, Object>>>() {
-						});
-			}
+//			if (pInfo.get("security_groups") != null) {
+//				ObjectMapper omedo = new ObjectMapper();
+//				port.security_groups = omedo.readValue(
+//						omedo.writeValueAsString(pInfo.get("security_groups")),
+//						new TypeReference<List<Map<String, Object>>>() {
+//						});
+//			}
 			if (pInfo.get("device_id") != null) {
 				port.device_id = pInfo.get("device_id").toString();
 			}
@@ -184,6 +184,7 @@ public class RestPort extends Restlet {
 			PortDefinition port = new PortDefinition();
 
 			try {
+				OFMOpenstackML2Connector.logger.debug("RestPort Request {}, JSON {}", m, request.getEntityAsText());
 				jsonToPortDefinition(request.getEntityAsText(), port);
 				
 				if("network:floatingip".equals(port.device_owner)) {
@@ -193,7 +194,7 @@ public class RestPort extends Restlet {
 						port.flow_exec = true;
 					}
 				}
-				OFMOpenstackML2Connector.logger.debug("RestPort Request {}, JSON {}", m, request.getEntityAsText());
+//				OFMOpenstackML2Connector.logger.debug("RestPort Request {}, JSON {}", m, request.getEntityAsText());
 			} catch (IOException e) {
 				OFMOpenstackML2Connector.logger.error("RestPort Could not parse JSON {}", e.getMessage());
 			}
@@ -204,7 +205,12 @@ public class RestPort extends Restlet {
 				if(!"".equals(portUUID)) {
 					port.portId = portUUID;
 //					parent.getModule().createPort(port, actionType);
-					parent.getModule().createPort(port);
+					if(parent.getModule().getVPortsByGuid().containsKey(portUUID)) {
+System.out.println("===== exist =====");
+						parent.getModule().createPort(port);
+					} else {
+System.out.println("===== not exist =====");
+					}
 				}
 			} else {
 //				parent.getModule().createPort(port, actionType);

@@ -32,6 +32,7 @@ import org.projectfloodlight.openflow.types.EthType;
 import org.projectfloodlight.openflow.types.OFBufferId;
 import org.projectfloodlight.openflow.types.OFPort;
 import org.projectfloodlight.openflow.util.HexString;
+import org.restlet.Context;
 import org.restlet.data.MediaType;
 import org.restlet.data.Method;
 import org.restlet.representation.StringRepresentation;
@@ -46,8 +47,9 @@ import etri.sdn.controller.OFMFilter;
 import etri.sdn.controller.OFModel;
 import etri.sdn.controller.OFModule;
 import etri.sdn.controller.TorpedoProperties;
-import etri.sdn.controller.module.ml2.RestNetwork.NetworkDefinition;
+import etri.sdn.controller.module.ml2.IOpenstackML2ConnectorService;
 import etri.sdn.controller.module.ml2.PortDefinition;
+import etri.sdn.controller.module.ml2.RestNetwork.NetworkDefinition;
 import etri.sdn.controller.module.routing.IRoutingDecision;
 import etri.sdn.controller.protocol.io.Connection;
 import etri.sdn.controller.protocol.packet.Ethernet;
@@ -58,8 +60,8 @@ public class OFMTunnelManager extends OFModule implements IOFMTunnelManagerServi
 	public static final Logger logger = LoggerFactory.getLogger(OFMTunnelManager.class);
 	
 	public class NodeDefinition {
-		public boolean flow_sync = false;
-		public boolean tag_sync = false;
+//		public boolean flow_sync = false;
+//		public boolean tag_sync = false;
 		public String node_ip_mgt = null;
 		public String node_ip_tun = null;
 		public String node_name = null;
@@ -104,6 +106,8 @@ public class OFMTunnelManager extends OFModule implements IOFMTunnelManagerServi
 	protected static Map<String, PortDefinition> vPortsByGuid;	// List of all created virtual networks
 	protected static Map<String, PortDefinition> vmByGuid;
 	
+	protected IOpenstackML2ConnectorService openstackML2Connector;
+	
 	@Override
 	protected Collection<Class<? extends IService>> services() {
 		List<Class<? extends IService>> ret = new LinkedList<>();
@@ -117,12 +121,18 @@ public class OFMTunnelManager extends OFModule implements IOFMTunnelManagerServi
 
 	@Override
 	protected void initialize() {
+		openstackML2Connector = (IOpenstackML2ConnectorService) getModule(IOpenstackML2ConnectorService.class);
+		
 		nodesByIp = new ConcurrentHashMap<String, NodeDefinition>();
 		intDpidByIp = new ConcurrentHashMap<String, Long>();
 		nodeIpByDpid = new ConcurrentHashMap<Long, String>();
 		vNetsByGuid = new ConcurrentHashMap<String, NetworkDefinition>();
 		vPortsByGuid = new ConcurrentHashMap<String, PortDefinition>();
 		vmByGuid = new ConcurrentHashMap<String, PortDefinition>();
+		
+		// when restarting controller neutron info initialize
+		Thread nii = new NeutronInfoInitialize();
+		nii.start();
 		
 		registerFilter(
 				OFType.PACKET_IN, 
@@ -145,17 +155,17 @@ public class OFMTunnelManager extends OFModule implements IOFMTunnelManagerServi
 					
 				});
 		
-		this.controller.scheduleTask(
-				new IOFTask() {
-					@Override
-					public boolean execute() {
-						syncTunnel();
-						return true;
-					}
-				}, 
-				0,
-				1 * 1000 /* milliseconds */
-				);
+//		this.controller.scheduleTask(
+//				new IOFTask() {
+//					@Override
+//					public boolean execute() {
+//						syncTunnel();
+//						return true;
+//					}
+//				}, 
+//				0,
+//				1 * 1000 /* milliseconds */
+//				);
 		
 		this.controller.scheduleTask(
 				new IOFTask() {
@@ -392,7 +402,7 @@ public class OFMTunnelManager extends OFModule implements IOFMTunnelManagerServi
 	
 	public void setup_tunnel_port(String ovsdb_server_remote_ip, String bridge_name, String port_name, String local_ip_tun, String remote_ip_tun) {
 		try {
-			rest_post(ovsdb_server_remote_ip, INAAS_AGENT_REST_PORT, "sudo ovs-vsctl add-port "+bridge_name+" "+port_name+" -- set Interface "+port_name+" type="+TUNNEL_TYPE+" options:in_key=flow options:local_ip="+local_ip_tun+" options:out_key=flow options:remote_ip="+remote_ip_tun+" options:dst_port="+TUNNEL_PORT);
+			rest_post(ovsdb_server_remote_ip, INAAS_AGENT_REST_PORT, "sudo ovs-vsctl --may-exist add-port "+bridge_name+" "+port_name+" -- set Interface "+port_name+" type="+TUNNEL_TYPE+" options:in_key=flow options:local_ip="+local_ip_tun+" options:out_key=flow options:remote_ip="+remote_ip_tun+" options:dst_port="+TUNNEL_PORT);
 			Thread.sleep(100);
 			String ofport = rest_get(ovsdb_server_remote_ip, INAAS_AGENT_REST_PORT, "sudo ovs-vsctl get Interface "+port_name+" ofport").get(0);
 			
@@ -401,10 +411,13 @@ public class OFMTunnelManager extends OFModule implements IOFMTunnelManagerServi
 			if(nodesByIp.get(ovsdb_server_remote_ip).local_vlan_ofports == null) {
 				nodesByIp.get(ovsdb_server_remote_ip).local_vlan_ofports = new ArrayList<String>();
 			}
-			nodesByIp.get(ovsdb_server_remote_ip).local_vlan_ofports.add(ofport);
+			if(!nodesByIp.get(ovsdb_server_remote_ip).local_vlan_ofports.contains(ofport)) {
+				nodesByIp.get(ovsdb_server_remote_ip).local_vlan_ofports.add(ofport);
+			}
 			
 			// change sync true
-			nodesByIp.get(ovsdb_server_remote_ip).flow_sync = true;
+//			nodesByIp.get(ovsdb_server_remote_ip).flow_sync = true;
+			ofports_flow(ovsdb_server_remote_ip);
 		} catch(Exception e) {
 			logger.error("Unable to setup_tunnel_port. Exception:  {}", e.getMessage());
 		}
@@ -413,20 +426,30 @@ public class OFMTunnelManager extends OFModule implements IOFMTunnelManagerServi
 	public void rest_post(String node_ip, String node_port, String command) {
 		logger.debug("rest_post({}:{}) : {}", node_ip, node_port, command);
 		
+		ClientResource resource = null;
+		StringRepresentation stringRep = null;
+		
 		try {
 			String restUri = "http://" + node_ip + ":" + node_port + "/wm/tunnel/iNaaSAgent";
 			
-			ClientResource resource = new ClientResource(restUri);
+			Context context = new Context();
+			context.getParameters().add("socketTimeout", "1000");
+			context.getParameters().add("idleTimeout", "1000");
+			
+			resource = new ClientResource(context, restUri);
 			resource.setMethod(Method.POST);
 			resource.getReference().addQueryParameter("format", "json");
 			
-			StringRepresentation stringRep = new StringRepresentation(command);
+			stringRep = new StringRepresentation(command);
 			stringRep.setMediaType(MediaType.APPLICATION_JSON);
 			
 			resource.post(stringRep);
 		} catch(Exception e) {
 			logger.error("========== Method Name : rest_post(String node_ip, String node_port, String command) ==========");
 			e.printStackTrace();
+		} finally {
+			stringRep.release();
+			resource.release();
 		}
 	}
 	
@@ -434,20 +457,26 @@ public class OFMTunnelManager extends OFModule implements IOFMTunnelManagerServi
 		logger.debug("rest_get({}:{}) : {}", node_ip, node_port, command);
 		
 		ArrayList<String> returnVal = new ArrayList<String>();
+		ClientResource resource = null;
 		
 		try {
 			String restUri = "http://" + node_ip + ":" + node_port + "/wm/tunnel/iNaaSAgent";
 			
-			ClientResource resource = new ClientResource(restUri+"/"+URLEncoder.encode(command, "UTF-8"));
+			Context context = new Context();
+			context.getParameters().add("socketTimeout", "1000");
+			context.getParameters().add("idleTimeout", "1000");
+			
+			resource = new ClientResource(context, restUri+"/"+URLEncoder.encode(command, "UTF-8"));
 			resource.setMethod(Method.GET);
 			resource.get();
 			
 			ObjectMapper om = new ObjectMapper();
 			returnVal = om.readValue(resource.getResponse().getEntityAsText(), new TypeReference<ArrayList<String>>(){});
-			
 		} catch(Exception e) {
 			logger.error("========== Method Name : rest_get(String node_ip, String node_port, String command) ==========");
 			e.printStackTrace();
+		} finally {
+			resource.release();
 		}
 		
 		return returnVal;
@@ -495,7 +524,8 @@ public class OFMTunnelManager extends OFModule implements IOFMTunnelManagerServi
 				rest_post(network_node_ip, INAAS_AGENT_REST_PORT, "sudo ovs-ofctl add-flow "+TUNNELING_BRIDGE_NAME+" hard_timeout=0,idle_timeout=0,table="+VXLAN_TUN_TO_LV+",priority=1,tun_id="+tun_id+",actions=mod_vlan_vid:"+mod_vlan_vid+",resubmit(,"+LEARN_FROM_TUN+")");
 				
 				// change sync true
-				nodesByIp.get(network_node_ip).flow_sync = true;
+//				nodesByIp.get(network_node_ip).flow_sync = true;
+				ofports_flow(network_node_ip);
 			} catch(Exception e) {
 				logger.error("Unable to create_network_flow. Exception : {}", e.getMessage());
 			}
@@ -627,7 +657,8 @@ public class OFMTunnelManager extends OFModule implements IOFMTunnelManagerServi
 				nodesByIp.get(network_node_ip).used_local_vPortsByGuid.put(port.portId, port);
 				
 				// change sync true
-				nodesByIp.get(network_node_ip).tag_sync = true;
+//				nodesByIp.get(network_node_ip).tag_sync = true;
+				port_tagging(network_node_ip, port.portId, port.network_id);
 			}
 		} else if("compute:nova".equals(port.device_owner) || "compute:None".equals(port.device_owner)) {
 //		} else if("compute:".equals(port.device_owner.substring(0, 8))) {
@@ -679,8 +710,10 @@ public class OFMTunnelManager extends OFModule implements IOFMTunnelManagerServi
 					vmByGuid.put(port.portId, port);
 					
 					// change sync true
-					nodesByIp.get(compute_node_ip).flow_sync = true;
-					nodesByIp.get(compute_node_ip).tag_sync = true;
+//					nodesByIp.get(compute_node_ip).flow_sync = true;
+//					nodesByIp.get(compute_node_ip).tag_sync = true;
+					ofports_flow(compute_node_ip);
+					port_tagging(compute_node_ip, port.portId, port.network_id);
 				} catch(Exception e) {
 					logger.error("Unable to create_port_flow. Exception : {}", e.getMessage());
 					e.printStackTrace();
@@ -748,80 +781,172 @@ public class OFMTunnelManager extends OFModule implements IOFMTunnelManagerServi
 		}
 	}
 	
-	public void syncTunnel() {
-		if(!nodesByIp.isEmpty()) {
-			for(Entry<String, NodeDefinition> entry : nodesByIp.entrySet()) {
-				if(entry.getValue().flow_sync) {
-					if(nodesByIp.get(entry.getKey()).local_vlan_ofports != null) {
-						String ofports = "";
-						for(int i = 0 ; i < nodesByIp.get(entry.getKey()).local_vlan_ofports.size() ; i++) {
-							if(i == 0) {
-								ofports = nodesByIp.get(entry.getKey()).local_vlan_ofports.get(i);
-							} else {
-								ofports += "," + nodesByIp.get(entry.getKey()).local_vlan_ofports.get(i);
-							}
-						}
-						
-						if(nodesByIp.get(entry.getKey()).used_local_vNetsByVlanid != null && !nodesByIp.get(entry.getKey()).used_local_vNetsByVlanid.isEmpty()) {
-							for(Entry<String, NetworkDefinition> vlanMap : nodesByIp.get(entry.getKey()).used_local_vNetsByVlanid.entrySet()) {
-								String network_id = vlanMap.getValue().netId;
-								String tun_id = "0x"+Integer.toHexString(Integer.parseInt(vlanMap.getValue().provider_segmentation_id)).toString();
-								String vlan_id = vlanMap.getKey().toString();
-								
-								if("".equals(ofports)) {
-									logger.debug("delFlow(syncTunnel) : IP - {}, FLOW - {}", entry.getKey(), "sudo ovs-ofctl del-flows "+TUNNELING_BRIDGE_NAME+" table="+FLOOD_TO_TUN+",dl_vlan="+vlan_id);
-									rest_post(entry.getKey(), INAAS_AGENT_REST_PORT, "sudo ovs-ofctl del-flows "+TUNNELING_BRIDGE_NAME+" table="+FLOOD_TO_TUN+",dl_vlan="+vlan_id);
-									logger.debug("delFlow(syncTunnel) : IP - {}, FLOW - {}", entry.getKey(), "sudo ovs-ofctl del-flows "+TUNNELING_BRIDGE_NAME+" table="+VXLAN_TUN_TO_LV+",tun_id="+tun_id);
-									rest_post(entry.getKey(), INAAS_AGENT_REST_PORT, "sudo ovs-ofctl del-flows "+TUNNELING_BRIDGE_NAME+" table="+VXLAN_TUN_TO_LV+",tun_id="+tun_id);
-									
-									nodesByIp.get(entry.getKey()).available_local_vlans.add(Integer.parseInt(vlan_id));
-									nodesByIp.get(entry.getKey()).used_local_vNetsByVlanid.remove(vlan_id);
-									nodesByIp.get(entry.getKey()).used_local_vNetsByGuid.remove(network_id);
-									nodesByIp.get(entry.getKey()).local_vNetidToVlanid.remove(network_id);
-								} else {
-									rest_post(entry.getKey(), INAAS_AGENT_REST_PORT, "sudo ovs-ofctl add-flow "+TUNNELING_BRIDGE_NAME+" table="+FLOOD_TO_TUN+",dl_vlan="+vlan_id+",actions=strip_vlan,set_tunnel:"+tun_id+",output:"+ofports);
-								}
-							}
-						}
-						nodesByIp.get(entry.getKey()).flow_sync = false;
+//	public void syncTunnel() {
+//		if(!nodesByIp.isEmpty()) {
+//			for(Entry<String, NodeDefinition> entry : nodesByIp.entrySet()) {
+//				if(entry.getValue().flow_sync) {
+//					if(nodesByIp.get(entry.getKey()).local_vlan_ofports != null) {
+//						String ofports = "";
+//						for(int i = 0 ; i < nodesByIp.get(entry.getKey()).local_vlan_ofports.size() ; i++) {
+//							if(i == 0) {
+//								ofports = nodesByIp.get(entry.getKey()).local_vlan_ofports.get(i);
+//							} else {
+//								ofports += "," + nodesByIp.get(entry.getKey()).local_vlan_ofports.get(i);
+//							}
+//						}
+//						
+//						if(nodesByIp.get(entry.getKey()).used_local_vNetsByVlanid != null && !nodesByIp.get(entry.getKey()).used_local_vNetsByVlanid.isEmpty()) {
+//							for(Entry<String, NetworkDefinition> vlanMap : nodesByIp.get(entry.getKey()).used_local_vNetsByVlanid.entrySet()) {
+//								String network_id = vlanMap.getValue().netId;
+//								String tun_id = "0x"+Integer.toHexString(Integer.parseInt(vlanMap.getValue().provider_segmentation_id)).toString();
+//								String vlan_id = vlanMap.getKey().toString();
+//								
+//								if("".equals(ofports)) {
+//									logger.debug("delFlow(syncTunnel) : IP - {}, FLOW - {}", entry.getKey(), "sudo ovs-ofctl del-flows "+TUNNELING_BRIDGE_NAME+" table="+FLOOD_TO_TUN+",dl_vlan="+vlan_id);
+//									rest_post(entry.getKey(), INAAS_AGENT_REST_PORT, "sudo ovs-ofctl del-flows "+TUNNELING_BRIDGE_NAME+" table="+FLOOD_TO_TUN+",dl_vlan="+vlan_id);
+//									logger.debug("delFlow(syncTunnel) : IP - {}, FLOW - {}", entry.getKey(), "sudo ovs-ofctl del-flows "+TUNNELING_BRIDGE_NAME+" table="+VXLAN_TUN_TO_LV+",tun_id="+tun_id);
+//									rest_post(entry.getKey(), INAAS_AGENT_REST_PORT, "sudo ovs-ofctl del-flows "+TUNNELING_BRIDGE_NAME+" table="+VXLAN_TUN_TO_LV+",tun_id="+tun_id);
+//									
+//									nodesByIp.get(entry.getKey()).available_local_vlans.add(Integer.parseInt(vlan_id));
+//									nodesByIp.get(entry.getKey()).used_local_vNetsByVlanid.remove(vlan_id);
+//									nodesByIp.get(entry.getKey()).used_local_vNetsByGuid.remove(network_id);
+//									nodesByIp.get(entry.getKey()).local_vNetidToVlanid.remove(network_id);
+//								} else {
+//									rest_post(entry.getKey(), INAAS_AGENT_REST_PORT, "sudo ovs-ofctl add-flow "+TUNNELING_BRIDGE_NAME+" table="+FLOOD_TO_TUN+",dl_vlan="+vlan_id+",actions=strip_vlan,set_tunnel:"+tun_id+",output:"+ofports);
+//								}
+//							}
+//						}
+//						nodesByIp.get(entry.getKey()).flow_sync = false;
+//					}
+//				}
+//				
+//					
+//				if(entry.getValue().tag_sync) {
+//					// sync tag setting
+//					if(nodesByIp.get(entry.getKey()).used_local_vPortsByGuid != null && !nodesByIp.get(entry.getKey()).used_local_vPortsByGuid.isEmpty()) {
+//						int vPortsCnt = nodesByIp.get(entry.getKey()).used_local_vPortsByGuid.size();
+//						int successCnt = 0;
+//						
+//						for(Entry<String, PortDefinition> localPortMap : nodesByIp.get(entry.getKey()).used_local_vPortsByGuid.entrySet()) {
+//							String tag = "";
+//							if(nodesByIp.get(entry.getKey()).local_vNetidToVlanid != null && localPortMap.getValue().network_id != null) {
+//								if(nodesByIp.get(entry.getKey()).local_vNetidToVlanid.containsKey(localPortMap.getValue().network_id)) {
+//									tag = nodesByIp.get(entry.getKey()).local_vNetidToVlanid.get(localPortMap.getValue().network_id);
+//								}
+//							}
+//							
+//							if(localPortMap.getValue().portId != null && !"".equals(localPortMap.getValue().portId) && !"".equals(tag)) {
+//								try {
+//									for(String readPortName : rest_get(entry.getKey(), INAAS_AGENT_REST_PORT, "sudo ovs-vsctl list-ports "+INTEGRATION_BRIDGE_NAME)) {
+//										if(localPortMap.getValue().portId.substring(0,11).equals(readPortName.substring(3))) {
+//											rest_post(entry.getKey(), INAAS_AGENT_REST_PORT, "sudo ovs-vsctl set Port "+readPortName+" tag="+tag);
+//											
+//											successCnt++;
+//										}
+//									}
+//								} catch(Exception e) {
+//									logger.error("Unable to sync tag. \n Exception: {}", e.getMessage());
+//								}
+//							}
+//						}
+//						
+//						if(vPortsCnt == successCnt) {
+//							nodesByIp.get(entry.getKey()).tag_sync = false;
+//						}
+//					}
+//				}
+//			}
+//		}
+//	}
+	
+	public void ofports_flow(String node_ip) {
+		try {
+			if(nodesByIp.get(node_ip).local_vlan_ofports != null) {
+				String ofports = "";
+				for(int i = 0 ; i < nodesByIp.get(node_ip).local_vlan_ofports.size() ; i++) {
+					if(i == 0) {
+						ofports = nodesByIp.get(node_ip).local_vlan_ofports.get(i);
+					} else {
+						ofports += "," + nodesByIp.get(node_ip).local_vlan_ofports.get(i);
 					}
 				}
 				
-					
-				if(entry.getValue().tag_sync) {
-					// sync tag setting
-					if(nodesByIp.get(entry.getKey()).used_local_vPortsByGuid != null && !nodesByIp.get(entry.getKey()).used_local_vPortsByGuid.isEmpty()) {
-						int vPortsCnt = nodesByIp.get(entry.getKey()).used_local_vPortsByGuid.size();
-						int successCnt = 0;
+				if(nodesByIp.get(node_ip).used_local_vNetsByVlanid != null && !nodesByIp.get(node_ip).used_local_vNetsByVlanid.isEmpty()) {
+					for(Entry<String, NetworkDefinition> vlanMap : nodesByIp.get(node_ip).used_local_vNetsByVlanid.entrySet()) {
+						String network_id = vlanMap.getValue().netId;
+						String tun_id = "0x"+Integer.toHexString(Integer.parseInt(vlanMap.getValue().provider_segmentation_id)).toString();
+						String vlan_id = vlanMap.getKey().toString();
 						
-						for(Entry<String, PortDefinition> localPortMap : nodesByIp.get(entry.getKey()).used_local_vPortsByGuid.entrySet()) {
-							String tag = "";
-							if(nodesByIp.get(entry.getKey()).local_vNetidToVlanid != null && localPortMap.getValue().network_id != null) {
-								if(nodesByIp.get(entry.getKey()).local_vNetidToVlanid.containsKey(localPortMap.getValue().network_id)) {
-									tag = nodesByIp.get(entry.getKey()).local_vNetidToVlanid.get(localPortMap.getValue().network_id);
-								}
-							}
+						if("".equals(ofports)) {
+							logger.debug("delFlow(syncTunnel) : IP - {}, FLOW - {}", node_ip, "sudo ovs-ofctl del-flows "+TUNNELING_BRIDGE_NAME+" table="+FLOOD_TO_TUN+",dl_vlan="+vlan_id);
+							rest_post(node_ip, INAAS_AGENT_REST_PORT, "sudo ovs-ofctl del-flows "+TUNNELING_BRIDGE_NAME+" table="+FLOOD_TO_TUN+",dl_vlan="+vlan_id);
+							logger.debug("delFlow(syncTunnel) : IP - {}, FLOW - {}", node_ip, "sudo ovs-ofctl del-flows "+TUNNELING_BRIDGE_NAME+" table="+VXLAN_TUN_TO_LV+",tun_id="+tun_id);
+							rest_post(node_ip, INAAS_AGENT_REST_PORT, "sudo ovs-ofctl del-flows "+TUNNELING_BRIDGE_NAME+" table="+VXLAN_TUN_TO_LV+",tun_id="+tun_id);
 							
-							if(localPortMap.getValue().portId != null && !"".equals(localPortMap.getValue().portId) && !"".equals(tag)) {
-								try {
-									for(String readPortName : rest_get(entry.getKey(), INAAS_AGENT_REST_PORT, "sudo ovs-vsctl list-ports "+INTEGRATION_BRIDGE_NAME)) {
-										if(localPortMap.getValue().portId.substring(0,11).equals(readPortName.substring(3))) {
-											rest_post(entry.getKey(), INAAS_AGENT_REST_PORT, "sudo ovs-vsctl set Port "+readPortName+" tag="+tag);
-											
-											successCnt++;
-										}
-									}
-								} catch(Exception e) {
-									logger.error("Unable to sync tag. \n Exception: {}", e.getMessage());
-								}
-							}
-						}
-						
-						if(vPortsCnt == successCnt) {
-							nodesByIp.get(entry.getKey()).tag_sync = false;
+							nodesByIp.get(node_ip).available_local_vlans.add(Integer.parseInt(vlan_id));
+							nodesByIp.get(node_ip).used_local_vNetsByVlanid.remove(vlan_id);
+							nodesByIp.get(node_ip).used_local_vNetsByGuid.remove(network_id);
+							nodesByIp.get(node_ip).local_vNetidToVlanid.remove(network_id);
+						} else {
+							rest_post(node_ip, INAAS_AGENT_REST_PORT, "sudo ovs-ofctl add-flow "+TUNNELING_BRIDGE_NAME+" table="+FLOOD_TO_TUN+",dl_vlan="+vlan_id+",actions=strip_vlan,set_tunnel:"+tun_id+",output:"+ofports);
 						}
 					}
 				}
+			}
+		} catch(Exception e) {
+			logger.error("node({}) : ofports_flow setting error. \n Exception: {}", node_ip, e.getMessage());
+		}
+	}
+	
+	public void port_tagging(String node_ip, String port_id, String network_id) {
+		Thread t = new PortTagging(node_ip, port_id, network_id);
+		t.start();
+	}
+	
+	public class PortTagging extends Thread {
+		String node_ip;
+		String port_id;
+		String network_id;
+		
+		public PortTagging(String node_ip, String port_id, String network_id) {
+			this.node_ip = node_ip;
+			this.port_id = port_id;
+			this.network_id = network_id;
+		}
+		
+		public void run() {
+			try {
+				String tag = "";
+				if(nodesByIp.get(this.node_ip).local_vNetidToVlanid != null && !"".equals(this.network_id)) {
+					if(nodesByIp.get(this.node_ip).local_vNetidToVlanid.containsKey(this.network_id)) {
+						tag = nodesByIp.get(this.node_ip).local_vNetidToVlanid.get(this.network_id);
+					}
+				}
+
+				int repeatTime = 10;
+				boolean repeat = true;
+				
+				for(int i = 0; i < repeatTime; i++) {
+					for(String readPortName : rest_get(this.node_ip, INAAS_AGENT_REST_PORT, "sudo ovs-vsctl list-ports "+INTEGRATION_BRIDGE_NAME)) {
+						if((this.port_id).substring(0,11).equals(readPortName.substring(3))) {
+							rest_post(this.node_ip, INAAS_AGENT_REST_PORT, "sudo ovs-vsctl set Port "+readPortName+" tag="+tag);
+							repeat = false;
+						}
+					}
+					
+					if(!repeat) {
+						break;
+					} else {
+						if(i == (repeatTime - 1)) {
+							logger.debug("{} does not exist.", this.port_id);
+							openstackML2Connector.deletePort(this.port_id);
+						} else {
+							Thread.sleep(1000);
+						}
+					}
+				}
+			} catch(Exception e) {
+				logger.error("Unable to sync tag. \n Exception: {}", e.getMessage());
 			}
 		}
 	}
@@ -869,7 +994,8 @@ public class OFMTunnelManager extends OFModule implements IOFMTunnelManagerServi
 								nodesByIp.get(deleteEntry.getKey()).local_vlan_ofports.remove(in_port);
 							}
 							
-							nodesByIp.get(deleteEntry.getKey()).flow_sync = true;
+//							nodesByIp.get(deleteEntry.getKey()).flow_sync = true;
+							ofports_flow(deleteEntry.getKey());
 						}
 					}
 				} 

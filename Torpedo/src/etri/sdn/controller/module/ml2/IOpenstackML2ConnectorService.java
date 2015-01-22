@@ -1,5 +1,7 @@
 package etri.sdn.controller.module.ml2;
 
+import java.util.Map;
+
 import etri.sdn.controller.IService;
 import etri.sdn.controller.module.ml2.RestNetwork.NetworkDefinition;
 import etri.sdn.controller.module.ml2.RestSubnet.SubnetDefinition;
@@ -95,4 +97,7 @@ public interface IOpenstackML2ConnectorService extends IService {
 	 * @param vnid The ID (not name) of tenant
 	 */
 	public String getVxlanIDtoTenant(String vnid);
+	
+	
+	public Map<String, VirtualPort> getVPortsByGuid();
 }

@@ -14,6 +14,7 @@ import org.codehaus.jackson.type.TypeReference;
 import org.projectfloodlight.openflow.protocol.OFMessage;
 import org.projectfloodlight.openflow.protocol.OFType;
 import org.projectfloodlight.openflow.util.HexString;
+import org.restlet.Context;
 import org.restlet.data.Method;
 import org.restlet.resource.ClientResource;
 import org.slf4j.Logger;
@@ -229,11 +230,17 @@ public class OFMiNaaSTopoManager extends OFModule implements IOFMiNaaSTopoManage
 		StringBuffer linklist = new StringBuffer();
 		linklist.append("\"linklist\":[");
 		
+		ClientResource resource = null;
+		
 		try {
-			ClientResource resource = new ClientResource(restUri);
+			Context context = new Context();
+			context.getParameters().add("socketTimeout", "1000");
+			context.getParameters().add("idleTimeout", "1000");
+			
+			resource = new ClientResource(context, restUri);
 			resource.setMethod(Method.GET);
 			resource.get();
-
+			
 			ObjectMapper om = new ObjectMapper();
 			List<Map<String, Object>> resultVal = om.readValue(resource.getResponse().getEntityAsText(), new TypeReference<List<Map<String, Object>>>(){});
 			
@@ -259,6 +266,8 @@ public class OFMiNaaSTopoManager extends OFModule implements IOFMiNaaSTopoManage
 			}
 		} catch(IOException e) {
 			logger.debug("linklist json parse exception.");
+		} finally {
+			resource.release();
 		}
 		
 		linklist.append("]");
