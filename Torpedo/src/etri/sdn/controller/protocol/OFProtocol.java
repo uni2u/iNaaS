@@ -363,13 +363,8 @@ public class OFProtocol {
 			// now the hello is successfully exchanged, so we remove the peer address 
 			// from the helloFailedSwitches set. 
 			try {
-				if ( conn.getClient() != null ) {
-					InetSocketAddress peer = (InetSocketAddress) conn.getClient().getRemoteAddress();
-					this.helloFailedSwitches.remove( peer.getHostString() );
-				}
-				else {
-					break;
-				}
+				InetSocketAddress peer = (InetSocketAddress) conn.getClient().getRemoteAddress();
+				this.helloFailedSwitches.remove( peer.getHostString() );
 			} catch (IOException e) {
 				logger.debug("conn.getClient().getRemoteAddress() failed");
 				e.printStackTrace();
@@ -482,9 +477,9 @@ public class OFProtocol {
 			// into the switches map. This map is used heavily by
 			// link discovery module.
 			//			Logger.stdout("adding a switch with id = " + conn.getSwitch().getId());
-			this.getController().addSwitch(sw.getId(), sw);
+			this.getController().addSwitch( conn.getSwitch().getId(), conn.getSwitch() );
 
-			this.deliverFeaturesReply(sw, m.getXid(), (OFFeaturesReply) m);
+			this.deliverFeaturesReply( conn.getSwitch(), m.getXid(), (OFFeaturesReply) m );
 
 			if ( !getController().handleGeneric(conn, context, m) ) {
 				return false;
@@ -543,6 +538,16 @@ public class OFProtocol {
 			}
 			break;
 
+		case FLOW_REMOVED:
+			if ( sw.getStringId() == null ) {
+				// FEATURES_REPLY is not received.
+				return false;
+			}
+
+			if ( !getController().handlePacketIn(conn, context, m) ) {
+				return false;
+			}
+			break;
 		default:
 			if ( !getController().handleGeneric(conn, context, m) ) {
 				return false;
@@ -783,6 +788,7 @@ public class OFProtocol {
 			ret.setExact(MatchField.IPV4_SRC, IPv4Address.of(packetDataBB.getInt()));
 			ret.setExact(MatchField.IPV4_DST, IPv4Address.of(packetDataBB.getInt()));
 			
+		
 			packetDataBB.position(transportOffset);
 			break;
 			
