@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html>
+
+  <head>
+    <meta charset='utf-8'>
+    <meta http-equiv="X-UA-Compatible" content="chrome=1">
+    <meta name="description" content="Inaas : Virtual Network control in OpenIRIS SDN Controller">
+
+    <link rel="stylesheet" type="text/css" media="screen" href="stylesheets/stylesheet.css">
+
+    <title>Inaas</title>
+  </head>
+
+  <body>
+
+    <!-- HEADER -->
+    <div id="header_wrap" class="outer">
+        <header class="inner">
+          <a id="forkme_banner" href="https://github.com/uni2u/iNaaS">View on GitHub</a>
+
+          <h1 id="project_title">Inaas</h1>
+          <h2 id="project_tagline">Virtual Network control in OpenIRIS SDN Controller</h2>
+
+            <section id="downloads">
+              <a class="zip_download_link" href="https://github.com/uni2u/iNaaS/zipball/master">Download this project as a .zip file</a>
+              <a class="tar_download_link" href="https://github.com/uni2u/iNaaS/tarball/master">Download this project as a tar.gz file</a>
+            </section>
+        </header>
+    </div>
+
+    <!-- MAIN CONTENT -->
+    <div id="main_content_wrap" class="outer">
+      <section id="main_content" class="inner">
+        <h1>
+<a id="iris-inaas" class="anchor" href="#iris-inaas" aria-hidden="true"><span class="octicon octicon-link"></span></a>IRIS-iNaaS</h1>
+
+<p>IRIS (pronounced ai-ri-s) is the Openflow-based Resursive SDN Openflow Controller created by SDN Research Section, ETRI.
+iNaaS is IRIS Network As A Service.</p>
+
+<p>In Greek mythodology, Iris is the goddess of the rainbow as well as the messenger of the other gods. 
+We named our controller after Iris in the hopes of creating a control plane architecture 
+that can effectively deliver network policies to the underlying data plane.</p>
+
+<p>Technically, IRIS is built on Beacon-like NIO-based event handler. On top of the IO engine, 
+we have ported many of Floodlight core/application modules including Learning Switch, 
+Link Discovery, Topology Manager, Device Manager, Forwarding, Firewall, and Static Flow Entry Pusher.
+Further, we have enhanced the Firewall module, and newly introduced a Nettwork Failover Module. </p>
+
+<p>Though a large portion of the IRIS functions take after those of Floodlight and Beacon, 
+we did not want to stop at merely creating an improved version of the famous open-source controllers. 
+Our vision was to create an SDN controller platform with the following features 
+(* not all of these are to be included in the open-source IRIS):</p>
+
+<ol>
+<li>Horizontal Scalability for carrier-grade network</li>
+<li>High Availability with transparent failover from failure</li>
+<li>Multi-domain support with recursive network abstraction based on Openflow</li>
+<li>Virtual Network SDN Controller based OpenStack</li>
+</ol>
+
+<p>We strived to satisfy above qualities with much simpler architecture 
+that facilitates developers to comfortably use and customize. 
+To do so, we have re-factored Floodlight a lot, successfully simplifying it to give better performance 
+and maintain an easy-to-learn development model. Further, IRIS REST API is designed to be fully compliant 
+with that of Floodlight, so that the current Floodlight applications can be easily transferred to IRIS.</p>
+
+<p>We have also modified the basic Floodlight UI to give users an easier view of the network topology. 
+Some of its improvements in the IRIS UI enable zoom-in, zoom-out, and panning of the network topology.</p>
+
+<h2>
+<a id="specification" class="anchor" href="#specification" aria-hidden="true"><span class="octicon octicon-link"></span></a>Specification</h2>
+
+<ol>
+<li>Supports Openflow 1.0.1 ~ 1.3.2</li>
+<li>Pure Java-based Implementation</li>
+<li>Handles more than 5 million Mac Learning Requests per second with commodity HW</li>
+<li>Supports about 500 concurrent connections to switches with commodity HW</li>
+<li>The same license policy with Floodlight (Apache license)</li>
+<li>Loxigen-based Openflow API</li>
+<li>OpenStack ML2 Mechanism Driver plugin</li>
+</ol>
+
+<h2>
+<a id="authors" class="anchor" href="#authors" aria-hidden="true"><span class="octicon octicon-link"></span></a>Authors</h2>
+
+<p>Yongyoon Shin (<a href="mailto:uni2u@etri.re.kr">uni2u@etri.re.kr</a>) </p>
+
+<ul>
+<li>GitHub ID: uni2u</li>
+<li>Senior Researcher </li>
+<li>SDN Technology Research Devision, ETRI </li>
+<li>Key Interests are: Software Engineering, SDN, Network Management, ICN, Virtual Network, OpenStack</li>
+</ul>
+      </section>
+    </div>
+
+    <!-- FOOTER  -->
+    <div id="footer_wrap" class="outer">
+      <footer class="inner">
+        <p class="copyright">Inaas maintained by <a href="https://github.com/uni2u">uni2u</a></p>
+        <p>Published with <a href="https://pages.github.com">GitHub Pages</a></p>
+      </footer>
+    </div>
+
+    
+
+  </body>
+</html>
