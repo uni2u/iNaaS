@@ -1,4 +1,4 @@
-IRIS-iNaaS
+iNaaS : The SDN Controller for Virtual Network
 ====
 IRIS (pronounced ai-ri-s) is the Openflow-based Resursive SDN Openflow Controller created by SDN Research Section, ETRI.
 iNaaS is IRIS Network As A Service.
