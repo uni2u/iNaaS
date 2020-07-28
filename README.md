@@ -46,6 +46,6 @@ Authors
 -------
 Yongyoon Shin (uni2u@etri.re.kr) 
 * GitHub ID: uni2u
-* Senior Researcher 
+* Senior Engineer 
 * SDN Technology Research Devision, ETRI 
 * Key Interests are: Software Engineering, SDN, Network Management, ICN, Virtual Network, OpenStack
